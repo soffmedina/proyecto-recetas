@@ -1,6 +1,7 @@
+from logging import warn
 import mysql.connector
 from mysql.connector import Error
-from utils.console import error, success 
+from utils.console import error, success, warn
 
 def conectar_db():
     try:
@@ -15,4 +16,5 @@ def conectar_db():
             return connection
     except Error as e:
         print(error(f" Error al conectar a MySQL: {e}"))
+        print(warn(" Verifique que el servidor de MySQL esté en ejecución."))
         return None 
