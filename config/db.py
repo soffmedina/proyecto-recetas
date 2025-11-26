@@ -1,4 +1,3 @@
-from logging import warn
 import mysql.connector
 from mysql.connector import Error
 from utils.console import error, success, warn
