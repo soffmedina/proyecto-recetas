@@ -29,7 +29,41 @@ class VentanaAutores(tk.Toplevel):
         #frame principal
         main_frame = tk.Frame(self.parent, bg='white')
         main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
-        
+        # Barra de búsqueda (igual que en recetas)
+        search_frame = tk.Frame(main_frame, bg='white')
+        search_frame.pack(fill=tk.X, pady=(0, 15))
+
+        tk.Label(search_frame, text="🔍 Buscar:", font=('Arial', 11), bg='white').pack(side=tk.LEFT, padx=(10, 5))
+
+        self.search_var = tk.StringVar()
+        search_entry = ttk.Entry(search_frame,
+                    textvariable=self.search_var,
+                    font=('Arial', 11),
+                    width=40)
+        search_entry.pack(side=tk.LEFT, padx=5)
+
+        tk.Button(search_frame,
+             text="Buscar",
+             command=self.buscar_autores,
+             bg=self.main_window.COLOR_AZUL,
+             fg='white',
+             font=('Arial', 10),
+             padx=15,
+             pady=5,
+             cursor='hand2',
+             bd=0).pack(side=tk.LEFT, padx=5)
+
+        tk.Button(search_frame,
+             text="↻ Recargar",
+             command=self.cargar_autores,
+             bg=self.main_window.COLOR_SECUNDARIO,
+             fg='white',
+             font=('Arial', 10),
+             padx=15,
+             pady=5,
+             cursor='hand2',
+             bd=0).pack(side=tk.LEFT, padx=5)
+
         #treeview
         tree_frame = tk.Frame(main_frame, bg='white')
         tree_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
@@ -71,6 +105,31 @@ class VentanaAutores(tk.Toplevel):
         for a in autores:
             bio = a['biography'][:50] + '...' if a['biography'] and len(a['biography']) > 50 else (a['biography'] or '')
             self.tree.insert('', tk.END, values=(a['id'], a['name'], a['email'], bio))
+
+    def buscar_autores(self):
+        """Busca autores por término (nombre, email o biografía)"""
+        termino = self.search_var.get().strip()
+        if not termino:
+            self.cargar_autores()
+            return
+
+        # Limpiar tabla
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+
+        autores = obtener_author()
+
+        for a in autores:
+            nombre = a.get('name', '') or ''
+            email = a.get('email', '') or ''
+            bio_full = a.get('biography', '') or ''
+
+            if (termino.lower() in nombre.lower() or
+                termino.lower() in email.lower() or
+                termino.lower() in bio_full.lower()):
+
+                bio = bio_full[:50] + '...' if bio_full and len(bio_full) > 50 else bio_full
+                self.tree.insert('', tk.END, values=(a['id'], a['name'], a['email'], bio))
     
     def abrir_formulario_nuevo(self):
         """Abre formulario nuevo"""

@@ -120,10 +120,10 @@ class VentanaFormularioIngrediente:
         """Crea formulario"""
         frame = tk.Frame(self.ventana, bg='white', padx=30, pady=20)
         frame.pack(fill=tk.BOTH, expand=True) 
-        
 
+        
         #Titulo - Nombre
-        tk.Label(frame, text="Ingrediente:", font=('Arial', 11, 'bold'), bg='white').grid(row=0, column=0, sticky=tk.W, pady=10)
+        tk.Label(frame, text="🥕 Ingrediente:*", font=('Arial', 11, 'bold'), bg='white', fg='#2E7D32').grid(row=0, column=0, sticky=tk.W, pady=10)
         self.entry_nombre = tk.Entry(frame, font=('Arial', 11), width=30)
         self.entry_nombre.grid(row=0, column=1, pady=10)
         self.entry_nombre.focus()
