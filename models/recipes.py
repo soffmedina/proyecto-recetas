@@ -76,9 +76,10 @@ def eliminar_receta_por_id(receta_id):
             cursor.execute("DELETE FROM recipes WHERE id = %s", (receta_id,))
             connection.commit()
             print(success(" Receta eliminada exitosamente."))
+            return True
         except Exception as e:
             print(error(f" Error al eliminar receta: {e}"))
-            return None
+            return False
         finally:
             cursor.close()
             connection.close()
@@ -127,9 +128,10 @@ def actualizar_receta(receta_id, title, description, preparation, author_id=None
             cursor.execute(query, (title, description, preparation, author_id, cuisine_id, receta_id))
             connection.commit()
             print(success(" Receta actualizada exitosamente."))
+            return True
         except Exception as e:
             print(error(f" Error al actualizar receta: {e}"))
-            return None
+            return False
         finally:
             cursor.close()
             connection.close()

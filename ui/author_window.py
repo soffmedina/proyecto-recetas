@@ -1,7 +1,8 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext
+import re
 
-from models.author import eliminar_author, obtener_author, obtener_author_por_id
+from models.author import actualizar_author, agregar_author, eliminar_author, obtener_author, obtener_author_por_id
 from models.cuisines import obtener_cuisines_por_id
 from models.ingredients import actualizar_ingrediente, agregar_ingrediente, obtener_ingrediente_por_id
 from models.recipes import obtener_receta_por_autor
@@ -451,16 +452,18 @@ class VentanaListaRecetasAutor:
 # ==================== FORMULARIO AUTOR ====================
 
 class VentanaFormularioAutor:
-    """Formulario autor"""
+    """Formulario autor con validaciones completas"""
     
     def __init__(self, parent, ventana_autores, modo='nuevo', autor_id=None):
         self.ventana_autores = ventana_autores
         self.modo = modo
         self.autor_id = autor_id
+        self.password_hash_existente = None
+        self.mostrar_password = False
         
         self.ventana = tk.Toplevel(parent)
-        self.ventana.title("Nuevo Autor" if modo == 'nuevo' else "Editar Autor")
-        self.ventana.geometry("550x500")
+        self.ventana.title("➕ Nuevo Autor" if modo == 'nuevo' else "✏️ Editar Autor")
+        self.ventana.geometry("600x700")
         self.ventana.resizable(False, False)
         self.ventana.grab_set()
         
@@ -469,82 +472,223 @@ class VentanaFormularioAutor:
             self.cargar_datos()
     
     def crear_interfaz(self):
-        """Crea formulario"""
-        frame = tk.Frame(self.ventana, bg='white', padx=30, pady=20)
-        frame.pack(fill=tk.BOTH, expand=True)
+        """Crea formulario con scroll y validaciones"""
+        # Header
+        header = tk.Frame(self.ventana, bg='#2E7D32', height=60)
+        header.pack(fill=tk.X)
+        header.pack_propagate(False)
         
-        # Título
-        titulo_texto = "Crear Nuevo Autor" if self.modo == 'nuevo' else "Editar Receta"
-        tk.Label(frame, text=titulo_texto, font=('Arial', 18, 'bold'), bg='white', fg='#2E7D32').pack(pady=(0, 20))
+        titulo_texto = "➕ Crear Nuevo Autor" if self.modo == 'nuevo' else "✏️ Editar Autor"
+        tk.Label(header, text=titulo_texto, font=('Arial', 16, 'bold'), bg='#2E7D32', fg='white').pack(side=tk.LEFT, padx=20, pady=15)
         
-        # Formulario con scroll
-        canvas = tk.Canvas(frame, bg='white', highlightthickness=0)
-        scrollbar = ttk.Scrollbar(frame, orient=tk.VERTICAL, command=canvas.yview)
-        scrollable_frame = tk.Frame(canvas, bg='white')
+        # Main frame con scroll
+        main_frame = tk.Frame(self.ventana, bg='white')
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
         
-        scrollable_frame.bind(
+        canvas = tk.Canvas(main_frame, bg='white', highlightthickness=0)
+        scrollbar = ttk.Scrollbar(main_frame, orient=tk.VERTICAL, command=canvas.yview)
+        self.scrollable_frame = tk.Frame(canvas, bg='white')
+        
+        self.scrollable_frame.bind(
             "<Configure>",
             lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
         )
         
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
         
-        # Campos del formulario
-        form = scrollable_frame
-        
-        # Nombre
-        tk.Label(form, text="Nombre:*", font=('Arial', 11, 'bold'), bg='white').pack(anchor='w', pady=(10, 5))
-        self.entry_titulo = ttk.Entry(form, font=('Arial', 11), width=60)
-        self.entry_titulo.pack(fill=tk.X, pady=(0, 10))
-        
-        # Email
-        tk.Label(form, text="Email:", font=('Arial', 11, 'bold'), bg='white').pack(anchor='w', pady=(10, 5))
-        self.text_descripcion = tk.Text(form, height=4, font=('Arial', 10), wrap=tk.WORD)
-        self.text_descripcion.pack(fill=tk.X, pady=(0, 10))
-        
-        #Avatar URL
-        tk.Label(form, text="URL del Avatar:", font=('Arial', 11, 'bold'), bg='white').pack(anchor='w', pady=(10, 5))
-        self.entry_avatar_url = ttk.Entry(form, font=('Arial', 11), width=60)
-        self.entry_avatar_url.pack(fill=tk.X, pady=(0, 10))
-        
-        
-        # Biografia
-        tk.Label(form, text="Biografia:*", font=('Arial', 11, 'bold'), bg='white').pack(anchor='w', pady=(10, 5))
-        self.text_preparacion = scrolledtext.ScrolledText(form, height=8, font=('Arial', 10), wrap=tk.WORD)
-        self.text_preparacion.pack(fill=tk.X, pady=(0, 10))
+        # Crear campos en el frame scrollable
+        self._crear_campos()
         
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
+        # Botones al final
+        btn_frame = tk.Frame(self.ventana, bg='white', pady=15)
+        btn_frame.pack(fill=tk.X)
         
-        btn_frame = tk.Frame(frame, bg='white')
-        btn_frame.pack(pady=20)
+        tk.Button(btn_frame, text="💾 Guardar", command=self.guardar, bg='#2E7D32', fg='white', 
+                 font=('Arial', 11, 'bold'), padx=25, pady=10, cursor='hand2', bd=0).pack(side=tk.LEFT, padx=10)
+        tk.Button(btn_frame, text="❌ Cancelar", command=self.ventana.destroy, bg='#757575', fg='white', 
+                 font=('Arial', 11), padx=25, pady=10, cursor='hand2', bd=0).pack(side=tk.LEFT, padx=5)
+    
+    def _crear_campos(self):
+        """Crea los campos del formulario con iconos y validaciones"""
+        form = self.scrollable_frame
         
-        tk.Button(btn_frame, text="💾 Guardar", command=self.guardar, bg='#2E7D32', fg='white', font=('Arial', 11, 'bold'), padx=20, pady=10, cursor='hand2', bd=0).pack(side=tk.LEFT, padx=5)
-        tk.Button(btn_frame, text="❌ Cancelar", command=self.ventana.destroy, bg='#757575', fg='white', font=('Arial', 11), padx=20, pady=10, cursor='hand2', bd=0).pack(side=tk.LEFT)
+        # ===== NOMBRE =====
+        nombre_frame = tk.Frame(form, bg='white')
+        nombre_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        tk.Label(nombre_frame, text="👤 Nombre:*", font=('Arial', 11, 'bold'), bg='white', fg='#2E7D32').pack(anchor='w', pady=(0, 5))
+        self.entry_name = ttk.Entry(nombre_frame, font=('Arial', 11), width=60)
+        self.entry_name.pack(fill=tk.X)
+        self.label_nombre_error = tk.Label(nombre_frame, text="", font=('Arial', 9), bg='white', fg='#F44336')
+        self.label_nombre_error.pack(anchor='w', pady=(3, 0))
+        
+        # ===== EMAIL =====
+        email_frame = tk.Frame(form, bg='white')
+        email_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        tk.Label(email_frame, text="📧 Email:*", font=('Arial', 11, 'bold'), bg='white', fg='#2E7D32').pack(anchor='w', pady=(0, 5))
+        self.entry_email = ttk.Entry(email_frame, font=('Arial', 11), width=60)
+        self.entry_email.pack(fill=tk.X)
+        self.label_email_error = tk.Label(email_frame, text="", font=('Arial', 9), bg='white', fg='#F44336')
+        self.label_email_error.pack(anchor='w', pady=(3, 0))
+        
+        # ===== PASSWORD =====
+        password_frame = tk.Frame(form, bg='white')
+        password_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        password_label = "🔐 Contraseña:*" if self.modo == 'nuevo' else "🔐 Contraseña: (opcional para editar)"
+        tk.Label(password_frame, text=password_label, font=('Arial', 11, 'bold'), bg='white', fg='#2E7D32').pack(anchor='w', pady=(0, 5))
+        
+        password_input_frame = tk.Frame(password_frame, bg='white')
+        password_input_frame.pack(fill=tk.X)
+        
+        self.entry_password = ttk.Entry(password_input_frame, font=('Arial', 11), width=55, show='•')
+        self.entry_password.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        self.btn_toggle_password = tk.Button(password_input_frame, text="👁️", bg='white', fg='#2E7D32', 
+                                           font=('Arial', 12), bd=0, cursor='hand2', padx=5, 
+                                           command=self._toggle_password)
+        self.btn_toggle_password.pack(side=tk.LEFT, padx=(5, 0))
+        
+        self.label_password_error = tk.Label(password_frame, text="", font=('Arial', 9), bg='white', fg='#F44336')
+        self.label_password_error.pack(anchor='w', pady=(3, 0))
+        
+        # Info sobre contraseña
+        info_password = "Mínimo 6 caracteres" if self.modo == 'nuevo' else "Mínimo 6 caracteres (dejar en blanco para no cambiar)"
+        tk.Label(password_frame, text=f"ℹ️ {info_password}", font=('Arial', 9, 'italic'), bg='white', fg='#757575').pack(anchor='w', pady=(2, 0))
+        
+        # ===== AVATAR URL =====
+        avatar_frame = tk.Frame(form, bg='white')
+        avatar_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        tk.Label(avatar_frame, text="🖼️ URL del Avatar:", font=('Arial', 11, 'bold'), bg='white', fg='#2E7D32').pack(anchor='w', pady=(0, 5))
+        self.entry_avatar_url = ttk.Entry(avatar_frame, font=('Arial', 11), width=60)
+        self.entry_avatar_url.pack(fill=tk.X)
+        tk.Label(avatar_frame, text="ℹ️ Opcional - Ingresa la URL completa de una imagen", font=('Arial', 9, 'italic'), bg='white', fg='#757575').pack(anchor='w', pady=(3, 0))
+        
+        # ===== BIOGRAFÍA =====
+        biografia_frame = tk.Frame(form, bg='white')
+        biografia_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        tk.Label(biografia_frame, text="📖 Biografía:", font=('Arial', 11, 'bold'), bg='white', fg='#2E7D32').pack(anchor='w', pady=(0, 5))
+        self.text_biography = scrolledtext.ScrolledText(biografia_frame, height=6, font=('Arial', 10), wrap=tk.WORD)
+        self.text_biography.pack(fill=tk.BOTH, expand=True)
+        tk.Label(biografia_frame, text="ℹ️ Opcional - Cuéntanos sobre el autor", font=('Arial', 9, 'italic'), bg='white', fg='#757575').pack(anchor='w', pady=(3, 0))
+    
+    def _toggle_password(self):
+        """Muestra/oculta la contraseña"""
+        self.mostrar_password = not self.mostrar_password
+        if self.mostrar_password:
+            self.entry_password.config(show='')
+            self.btn_toggle_password.config(text='🙈')
+        else:
+            self.entry_password.config(show='•')
+            self.btn_toggle_password.config(text='👁️')
+    
+    def _validar_nombre(self):
+        """Valida el campo nombre"""
+        nombre = self.entry_name.get().strip()
+        if not nombre:
+            self.label_nombre_error.config(text="⚠️ El nombre es obligatorio")
+            return False
+        if len(nombre) < 3:
+            self.label_nombre_error.config(text="⚠️ El nombre debe tener al menos 3 caracteres")
+            return False
+        self.label_nombre_error.config(text="")
+        return True
+    
+    def _validar_email(self):
+        """Valida el campo email"""
+        email = self.entry_email.get().strip()
+        if not email:
+            self.label_email_error.config(text="⚠️ El email es obligatorio")
+            return False
+        
+        # Regex básico para email
+        patron_email = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(patron_email, email):
+            self.label_email_error.config(text="⚠️ Formato de email inválido")
+            return False
+        
+        self.label_email_error.config(text="")
+        return True
+    
+    def _validar_password(self):
+        """Valida el campo contraseña"""
+        password = self.entry_password.get()
+        
+        if self.modo == 'nuevo':
+            # Crear nuevo: obligatorio
+            if not password:
+                self.label_password_error.config(text="⚠️ La contraseña es obligatoria")
+                return False
+            if len(password) < 6:
+                self.label_password_error.config(text="⚠️ La contraseña debe tener al menos 6 caracteres")
+                return False
+        else:
+            # Editar: opcional, pero si se ingresa debe cumplir con mínimo
+            if password and len(password) < 6:
+                self.label_password_error.config(text="⚠️ La contraseña debe tener al menos 6 caracteres")
+                return False
+        
+        self.label_password_error.config(text="")
+        return True
     
     def cargar_datos(self):
         """Carga datos para editar"""
-        ingrediente = obtener_ingrediente_por_id(self.ingrediente_id)
-        if ingrediente:
-            self.entry_nombre.insert(0, ingrediente['name'])
+        autor = obtener_author_por_id(self.autor_id)
+        if autor:
+            self.entry_name.insert(0, autor.get('name', ''))
+            self.entry_email.insert(0, autor.get('email', '') or '')
+            self.entry_avatar_url.insert(0, autor.get('avatar_url', '') or '')
+            if autor.get('biography'):
+                self.text_biography.insert('1.0', autor.get('biography'))
+            # Guardar password_hash existente para no perderlo
+            self.password_hash_existente = autor.get('password_hash', '')
     
     def guardar(self):
-        """Guarda o actualiza ingrediente"""
-        nombre = self.entry_nombre.get().strip()
-        if not nombre:
-            messagebox.showwarning("Advertencia", "El nombre es obligatorio")
+        """Guarda o actualiza autor con validaciones completas"""
+        # Validar todos los campos
+        if not self._validar_nombre():
+            messagebox.showwarning("Validación", "Por favor corrige el nombre")
             return
         
+        if not self._validar_email():
+            messagebox.showwarning("Validación", "Por favor corrige el email")
+            return
+        
+        if not self._validar_password():
+            messagebox.showwarning("Validación", "Por favor corrige la contraseña")
+            return
+        
+        # Obtener valores validados
+        name = self.entry_name.get().strip()
+        email = self.entry_email.get().strip()
+        password = self.entry_password.get()
+        avatar_url = self.entry_avatar_url.get().strip()
+        biography = self.text_biography.get('1.0', tk.END).strip()
+        
         if self.modo == 'nuevo':
-            if agregar_ingrediente(nombre):
-                messagebox.showinfo("Éxito", "Ingrediente creado")
-                self.ventana_ingredientes.cargar_ingredientes()
+            # Crear nuevo autor
+            if agregar_author(name, email, password, avatar_url, biography):
+                messagebox.showinfo("✅ Éxito", f"Autor '{name}' creado correctamente")
+                self.ventana_autores.cargar_autores()
                 self.ventana.destroy()
+            else:
+                messagebox.showerror("❌ Error", "No se pudo crear el autor. Verifica que el email no esté duplicado.")
         else:
-            actualizar_ingrediente(self.ingrediente_id, nombre)
-            messagebox.showinfo("Éxito", "Ingrediente actualizado")
-            self.ventana_ingredientes.cargar_ingredientes()
-            self.ventana.destroy()
+            # Actualizar autor existente
+            # Si no se cambió la contraseña, usar la existente
+            password_hash = password if password else self.password_hash_existente
+            
+            if actualizar_author(self.autor_id, name, email, password_hash, avatar_url, biography):
+                messagebox.showinfo("✅ Éxito", f"Autor '{name}' actualizado correctamente")
+                self.ventana_autores.cargar_autores()
+                self.ventana.destroy()
+            else:
+                messagebox.showerror("❌ Error", "No se pudo actualizar el autor. Verifica que el email no esté duplicado.")
 

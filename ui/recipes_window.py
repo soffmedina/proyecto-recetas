@@ -212,7 +212,7 @@ class VentanaRecetas(tk.Toplevel):
 # ==================== VENTANA FORMULARIO RECETA ====================
 
 class VentanaFormularioReceta:
-    """Ventana para crear/editar recetas"""
+    """Ventana para crear/editar recetas con validaciones y diseño mejorado"""
     
     def __init__(self, parent, ventana_recetas, modo='nuevo', receta_id=None):
         self.ventana_recetas = ventana_recetas
@@ -221,7 +221,7 @@ class VentanaFormularioReceta:
         
         self.ventana = tk.Toplevel(parent)
         self.ventana.title("➕ Nueva Receta" if modo == 'nuevo' else "✏️ Editar Receta")
-        self.ventana.geometry("700x750")
+        self.ventana.geometry("700x800")
         self.ventana.resizable(False, False)
         self.ventana.grab_set()
         
@@ -230,78 +230,135 @@ class VentanaFormularioReceta:
             self.cargar_datos_receta()
     
     def crear_interfaz(self):
-        """Crea el formulario de receta"""
-        main_frame = tk.Frame(self.ventana, bg='white', padx=30, pady=20)
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        """Crea el formulario de receta con scroll y validaciones"""
+        # Header
+        header = tk.Frame(self.ventana, bg='#2196F3', height=60)
+        header.pack(fill=tk.X)
+        header.pack_propagate(False)
         
-        # Título
-        titulo_texto = "Crear Nueva Receta" if self.modo == 'nuevo' else "Editar Receta"
-        tk.Label(main_frame, text=titulo_texto, font=('Arial', 18, 'bold'), bg='white', fg='#2E7D32').pack(pady=(0, 20))
+        titulo_texto = "➕ Crear Nueva Receta" if self.modo == 'nuevo' else "✏️ Editar Receta"
+        tk.Label(header, text=titulo_texto, font=('Arial', 16, 'bold'), bg='#2196F3', fg='white').pack(side=tk.LEFT, padx=20, pady=15)
         
-        # Formulario con scroll
+        # Main frame con scroll
+        main_frame = tk.Frame(self.ventana, bg='white')
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        
         canvas = tk.Canvas(main_frame, bg='white', highlightthickness=0)
         scrollbar = ttk.Scrollbar(main_frame, orient=tk.VERTICAL, command=canvas.yview)
-        scrollable_frame = tk.Frame(canvas, bg='white')
+        self.scrollable_frame = tk.Frame(canvas, bg='white')
         
-        scrollable_frame.bind(
+        self.scrollable_frame.bind(
             "<Configure>",
             lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
         )
         
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
         
-        # Campos del formulario
-        form = scrollable_frame
-        
-        # Título
-        tk.Label(form, text="Título:*", font=('Arial', 11, 'bold'), bg='white').pack(anchor='w', pady=(10, 5))
-        self.entry_titulo = ttk.Entry(form, font=('Arial', 11), width=60)
-        self.entry_titulo.pack(fill=tk.X, pady=(0, 10))
-        
-        # Descripción
-        tk.Label(form, text="Descripción:", font=('Arial', 11, 'bold'), bg='white').pack(anchor='w', pady=(10, 5))
-        self.text_descripcion = tk.Text(form, height=4, font=('Arial', 10), wrap=tk.WORD)
-        self.text_descripcion.pack(fill=tk.X, pady=(0, 10))
-        
-        # Autor
-        tk.Label(form, text="Autor:", font=('Arial', 11, 'bold'), bg='white').pack(anchor='w', pady=(10, 5))
-        autores = obtener_author()
-        autor_valores = [f"{a['id']} - {a['name']}" for a in autores]
-        autor_valores.insert(0, "Sin autor")
-        self.combo_autor = ttk.Combobox(form, values=autor_valores, state='readonly', font=('Arial', 10), width=57)
-        self.combo_autor.current(0)
-        self.combo_autor.pack(fill=tk.X, pady=(0, 10))
-        
-        # Tipo de cocina
-        tk.Label(form, text="Tipo de Cocina:", font=('Arial', 11, 'bold'), bg='white').pack(anchor='w', pady=(10, 5))
-        cuisines = obtener_cuisines()
-        cuisine_valores = [f"{c['id']} - {c['name']}" for c in cuisines]
-        cuisine_valores.insert(0, "Sin tipo de cocina")
-        self.combo_cuisine = ttk.Combobox(form, values=cuisine_valores, state='readonly', font=('Arial', 10), width=57)
-        self.combo_cuisine.current(0)
-        self.combo_cuisine.pack(fill=tk.X, pady=(0, 10))
-        
-        # Preparación
-        tk.Label(form, text="Instrucciones de Preparación:*", font=('Arial', 11, 'bold'), bg='white').pack(anchor='w', pady=(10, 5))
-        self.text_preparacion = scrolledtext.ScrolledText(form, height=8, font=('Arial', 10), wrap=tk.WORD)
-        self.text_preparacion.pack(fill=tk.X, pady=(0, 10))
+        # Crear campos
+        self._crear_campos()
         
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
         # Botones
-        btn_frame = tk.Frame(main_frame, bg='white')
-        btn_frame.pack(fill=tk.X, pady=20)
+        btn_frame = tk.Frame(self.ventana, bg='white', pady=15)
+        btn_frame.pack(fill=tk.X)
         
-        tk.Button(btn_frame, text="💾 Guardar", command=self.guardar_receta, bg='#2E7D32', fg='white', font=('Arial', 11, 'bold'), padx=30, pady=10, cursor='hand2', bd=0).pack(side=tk.LEFT, padx=5)
-        tk.Button(btn_frame, text="❌ Cancelar", command=self.ventana.destroy, bg='#757575', fg='white', font=('Arial', 11), padx=30, pady=10, cursor='hand2', bd=0).pack(side=tk.LEFT, padx=5)
+        tk.Button(btn_frame, text="💾 Guardar", command=self.guardar_receta, bg='#2196F3', fg='white', 
+                 font=('Arial', 11, 'bold'), padx=25, pady=10, cursor='hand2', bd=0).pack(side=tk.LEFT, padx=10)
+        tk.Button(btn_frame, text="❌ Cancelar", command=self.ventana.destroy, bg='#757575', fg='white', 
+                 font=('Arial', 11), padx=25, pady=10, cursor='hand2', bd=0).pack(side=tk.LEFT, padx=5)
+    
+    def _crear_campos(self):
+        """Crea los campos del formulario con iconos y validaciones"""
+        form = self.scrollable_frame
+        
+        # ===== TÍTULO =====
+        titulo_frame = tk.Frame(form, bg='white')
+        titulo_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        tk.Label(titulo_frame, text="🍽️ Título:*", font=('Arial', 11, 'bold'), bg='white', fg='#2196F3').pack(anchor='w', pady=(0, 5))
+        self.entry_titulo = ttk.Entry(titulo_frame, font=('Arial', 11), width=65)
+        self.entry_titulo.pack(fill=tk.X)
+        self.label_titulo_error = tk.Label(titulo_frame, text="", font=('Arial', 9), bg='white', fg='#F44336')
+        self.label_titulo_error.pack(anchor='w', pady=(3, 0))
+        
+        # ===== DESCRIPCIÓN =====
+        descripcion_frame = tk.Frame(form, bg='white')
+        descripcion_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        tk.Label(descripcion_frame, text="📝 Descripción:", font=('Arial', 11, 'bold'), bg='white', fg='#2196F3').pack(anchor='w', pady=(0, 5))
+        self.text_descripcion = tk.Text(descripcion_frame, height=4, font=('Arial', 10), wrap=tk.WORD)
+        self.text_descripcion.pack(fill=tk.X)
+        tk.Label(descripcion_frame, text="ℹ️ Opcional - Resumen o introducción de la receta", font=('Arial', 9, 'italic'), bg='white', fg='#757575').pack(anchor='w', pady=(3, 0))
+        
+        # ===== AUTOR =====
+        autor_frame = tk.Frame(form, bg='white')
+        autor_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        tk.Label(autor_frame, text="👨‍🍳 Autor:", font=('Arial', 11, 'bold'), bg='white', fg='#2196F3').pack(anchor='w', pady=(0, 5))
+        autores = obtener_author()
+        autor_valores = [f"{a['id']} - {a['name']}" for a in autores]
+        autor_valores.insert(0, "Sin autor")
+        self.combo_autor = ttk.Combobox(autor_frame, values=autor_valores, state='readonly', font=('Arial', 10), width=62)
+        self.combo_autor.current(0)
+        self.combo_autor.pack(fill=tk.X)
+        tk.Label(autor_frame, text="ℹ️ Opcional - Selecciona el autor de la receta", font=('Arial', 9, 'italic'), bg='white', fg='#757575').pack(anchor='w', pady=(3, 0))
+        
+        # ===== TIPO DE COCINA =====
+        cuisine_frame = tk.Frame(form, bg='white')
+        cuisine_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        tk.Label(cuisine_frame, text="🌎 Tipo de Cocina:", font=('Arial', 11, 'bold'), bg='white', fg='#2196F3').pack(anchor='w', pady=(0, 5))
+        cuisines = obtener_cuisines()
+        cuisine_valores = [f"{c['id']} - {c['name']}" for c in cuisines]
+        cuisine_valores.insert(0, "Sin tipo de cocina")
+        self.combo_cuisine = ttk.Combobox(cuisine_frame, values=cuisine_valores, state='readonly', font=('Arial', 10), width=62)
+        self.combo_cuisine.current(0)
+        self.combo_cuisine.pack(fill=tk.X)
+        tk.Label(cuisine_frame, text="ℹ️ Opcional - Selecciona el tipo de cocina", font=('Arial', 9, 'italic'), bg='white', fg='#757575').pack(anchor='w', pady=(3, 0))
+        
+        # ===== PREPARACIÓN =====
+        preparacion_frame = tk.Frame(form, bg='white')
+        preparacion_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        tk.Label(preparacion_frame, text="👨‍🍳 Instrucciones de Preparación:*", font=('Arial', 11, 'bold'), bg='white', fg='#2196F3').pack(anchor='w', pady=(0, 5))
+        self.text_preparacion = scrolledtext.ScrolledText(preparacion_frame, height=8, font=('Arial', 10), wrap=tk.WORD)
+        self.text_preparacion.pack(fill=tk.BOTH, expand=True)
+        self.label_prep_error = tk.Label(preparacion_frame, text="", font=('Arial', 9), bg='white', fg='#F44336')
+        self.label_prep_error.pack(anchor='w', pady=(3, 0))
+        tk.Label(preparacion_frame, text="ℹ️ Obligatorio - Detalla paso a paso cómo preparar la receta", font=('Arial', 9, 'italic'), bg='white', fg='#757575').pack(anchor='w', pady=(3, 0))
+    
+    def _validar_titulo(self):
+        """Valida el título"""
+        titulo = self.entry_titulo.get().strip()
+        if not titulo:
+            self.label_titulo_error.config(text="⚠️ El título es obligatorio")
+            return False
+        if len(titulo) < 3:
+            self.label_titulo_error.config(text="⚠️ El título debe tener al menos 3 caracteres")
+            return False
+        self.label_titulo_error.config(text="")
+        return True
+    
+    def _validar_preparacion(self):
+        """Valida la preparación"""
+        prep = self.text_preparacion.get('1.0', tk.END).strip()
+        if not prep:
+            self.label_prep_error.config(text="⚠️ Las instrucciones son obligatorias")
+            return False
+        if len(prep) < 10:
+            self.label_prep_error.config(text="⚠️ Las instrucciones deben tener al menos 10 caracteres")
+            return False
+        self.label_prep_error.config(text="")
+        return True
     
     def cargar_datos_receta(self):
         """Carga los datos de la receta para editar"""
         receta = obtener_receta_por_id(self.receta_id)
         if not receta:
-            messagebox.showerror("Error", "No se pudo cargar la receta")
+            messagebox.showerror("❌ Error", "No se pudo cargar la receta")
             self.ventana.destroy()
             return
         
@@ -326,21 +383,20 @@ class VentanaFormularioReceta:
             self.text_preparacion.insert('1.0', receta['preparation'])
     
     def guardar_receta(self):
-        """Guarda o actualiza la receta"""
-        # Validar campos
-        titulo = self.entry_titulo.get().strip()
-        if not titulo:
-            messagebox.showwarning("Advertencia", "El título es obligatorio")
+        """Guarda o actualiza la receta con validaciones"""
+        if not self._validar_titulo():
+            messagebox.showwarning("Validación", "Por favor corrige el título")
             return
         
+        if not self._validar_preparacion():
+            messagebox.showwarning("Validación", "Por favor corrige las instrucciones")
+            return
+        
+        # Obtener valores
+        titulo = self.entry_titulo.get().strip()
         descripcion = self.text_descripcion.get('1.0', tk.END).strip()
         preparacion = self.text_preparacion.get('1.0', tk.END).strip()
         
-        if not preparacion:
-            messagebox.showwarning("Advertencia", "Las instrucciones de preparación son obligatorias")
-            return
-        
-        # Obtener IDs
         autor_seleccion = self.combo_autor.get()
         author_id = None if autor_seleccion == "Sin autor" else int(autor_seleccion.split(' - ')[0])
         
@@ -351,14 +407,18 @@ class VentanaFormularioReceta:
         if self.modo == 'nuevo':
             receta_id = agregar_receta(titulo, descripcion, preparacion, author_id, cuisine_id)
             if receta_id:
-                messagebox.showinfo("Éxito", "Receta creada correctamente")
+                messagebox.showinfo("✅ Éxito", f"Receta '{titulo}' creada correctamente")
                 self.ventana_recetas.cargar_recetas()
                 self.ventana.destroy()
+            else:
+                messagebox.showerror("❌ Error", "No se pudo crear la receta")
         else:
             if actualizar_receta(self.receta_id, titulo, descripcion, preparacion, author_id, cuisine_id):
-                messagebox.showinfo("Éxito", "Receta actualizada correctamente")
+                messagebox.showinfo("✅ Éxito", f"Receta '{titulo}' actualizada correctamente")
                 self.ventana_recetas.cargar_recetas()
                 self.ventana.destroy()
+            else:
+                messagebox.showerror("❌ Error", "No se pudo actualizar la receta")
                 
                 
 

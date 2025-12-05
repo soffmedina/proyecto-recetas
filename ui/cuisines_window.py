@@ -69,7 +69,7 @@ class VentanaCuisines(tk.Toplevel):
     
     def abrir_formulario_nuevo(self):
         """Abre formulario para nueva cuisine"""
-        VentanaFormularioCuisine(self.main_window.root, self, modo='nuevo')
+        VentanaFormularioCuisine(self.main_window, self, modo='nuevo')
     
     def editar_cuisine(self):
         """Editar cuisine seleccionada"""
@@ -79,7 +79,7 @@ class VentanaCuisines(tk.Toplevel):
             return
         item = self.tree.item(seleccion[0])
         cuisine_id = item['values'][0]
-        VentanaFormularioCuisine(self.main_window.root, self, modo='editar', cuisine_id=cuisine_id)
+        VentanaFormularioCuisine(self.main_window, self, modo='editar', cuisine_id=cuisine_id)
     
     def eliminar_cuisine(self):
         """Eliminar cuisine seleccionada"""
@@ -101,7 +101,7 @@ class VentanaCuisines(tk.Toplevel):
 # ==================== FORMULARIO CUISINE ====================
 
 class VentanaFormularioCuisine:
-    """Formulario para crear/editar cuisine"""
+    """Formulario para crear/editar cuisine con validaciones y diseño mejorado"""
     
     def __init__(self, parent, ventana_cuisines, modo='nuevo', cuisine_id=None):
         self.ventana_cuisines = ventana_cuisines
@@ -110,7 +110,7 @@ class VentanaFormularioCuisine:
         
         self.ventana = tk.Toplevel(parent)
         self.ventana.title("➕ Nueva Cocina" if modo == 'nuevo' else "✏️ Editar Cocina")
-        self.ventana.geometry("500x400")
+        self.ventana.geometry("600x650")
         self.ventana.resizable(False, False)
         self.ventana.grab_set()
         
@@ -119,36 +119,89 @@ class VentanaFormularioCuisine:
             self.cargar_datos()
     
     def crear_interfaz(self):
-        """Crea el formulario"""
-        frame = tk.Frame(self.ventana, bg='white', padx=30, pady=20)
-        frame.pack(fill=tk.BOTH, expand=True)
+        """Crea el formulario con scroll y validaciones"""
+        # Header
+        header = tk.Frame(self.ventana, bg='#FF6F00', height=60)
+        header.pack(fill=tk.X)
+        header.pack_propagate(False)
         
-        #Titulo
-        titulo_texto = "Tipos de Cocinas" if self.modo == 'nuevo' else "Editar Receta"
-        tk.Label(frame, text=titulo_texto, font=('Arial', 18, 'bold'), bg='white', fg='#2E7D32').pack(pady=(0, 20))
+        titulo_texto = "➕ Crear Nuevo Tipo de Cocina" if self.modo == 'nuevo' else "✏️ Editar Tipo de Cocina"
+        tk.Label(header, text=titulo_texto, font=('Arial', 16, 'bold'), bg='#FF6F00', fg='white').pack(side=tk.LEFT, padx=20, pady=15)
         
-        #Nombre
-        tk.Label(frame, text="Nombre:*", font=('Arial', 11, 'bold'), bg='white').pack(anchor='w', pady=(10, 5))
-        self.entry_nombre = ttk.Entry(frame, font=('Arial', 11), width=50)
-        self.entry_nombre.pack(fill=tk.X)
+        # Main frame con scroll
+        main_frame = tk.Frame(self.ventana, bg='white')
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
         
-        #Pais
-        tk.Label(frame, text="País de Origen:", font=('Arial', 11, 'bold'), bg='white').pack(anchor='w', pady=(10, 5))
-        self.entry_pais = ttk.Entry(frame, font=('Arial', 11), width=50)
-        self.entry_pais.pack(fill=tk.X)
+        canvas = tk.Canvas(main_frame, bg='white', highlightthickness=0)
+        scrollbar = ttk.Scrollbar(main_frame, orient=tk.VERTICAL, command=canvas.yview)
+        self.scrollable_frame = tk.Frame(canvas, bg='white')
         
-        #Descripcion
-        tk.Label(frame, text="Descripción:", font=('Arial', 11, 'bold'), bg='white').pack(anchor='w', pady=(10, 5))
-        self.text_descripcion = tk.Text(frame, height=5, font=('Arial', 10), wrap=tk.WORD)
-        self.text_descripcion.pack(fill=tk.X)
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
         
-        # Botones
-        btn_frame = tk.Frame(frame, bg='white')
-        btn_frame.pack(pady=20)
+        canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
         
-        tk.Button(btn_frame, text="💾 Guardar", command=self.guardar, bg='#2E7D32', fg='white', font=('Arial', 11, 'bold'), padx=20, pady=10, cursor='hand2', bd=0).pack(side=tk.LEFT, padx=5)
-        tk.Button(btn_frame, text="❌ Cancelar", command=self.ventana.destroy, bg='#757575', fg='white', font=('Arial', 11), padx=20, pady=10, cursor='hand2', bd=0).pack(side=tk.LEFT)
+        # Crear campos en el frame scrollable
+        self._crear_campos()
+        
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Botones al final
+        btn_frame = tk.Frame(self.ventana, bg='white', pady=15)
+        btn_frame.pack(fill=tk.X)
+        
+        tk.Button(btn_frame, text="💾 Guardar", command=self.guardar, bg='#FF6F00', fg='white', 
+                 font=('Arial', 11, 'bold'), padx=25, pady=10, cursor='hand2', bd=0).pack(side=tk.LEFT, padx=10)
+        tk.Button(btn_frame, text="❌ Cancelar", command=self.ventana.destroy, bg='#757575', fg='white', 
+                 font=('Arial', 11), padx=25, pady=10, cursor='hand2', bd=0).pack(side=tk.LEFT, padx=5)
     
+    def _crear_campos(self):
+        """Crea los campos del formulario con iconos y validaciones"""
+        form = self.scrollable_frame
+        
+        # ===== NOMBRE =====
+        nombre_frame = tk.Frame(form, bg='white')
+        nombre_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        tk.Label(nombre_frame, text="🌎 Nombre:*", font=('Arial', 11, 'bold'), bg='white', fg='#FF6F00').pack(anchor='w', pady=(0, 5))
+        self.entry_nombre = ttk.Entry(nombre_frame, font=('Arial', 11), width=65)
+        self.entry_nombre.pack(fill=tk.X)
+        self.label_nombre_error = tk.Label(nombre_frame, text="", font=('Arial', 9), bg='white', fg='#F44336')
+        self.label_nombre_error.pack(anchor='w', pady=(3, 0))
+        
+        # ===== PAÍS DE ORIGEN =====
+        pais_frame = tk.Frame(form, bg='white')
+        pais_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        tk.Label(pais_frame, text="🗺️ País de Origen:", font=('Arial', 11, 'bold'), bg='white', fg='#FF6F00').pack(anchor='w', pady=(0, 5))
+        self.entry_pais = ttk.Entry(pais_frame, font=('Arial', 11), width=65)
+        self.entry_pais.pack(fill=tk.X)
+        tk.Label(pais_frame, text="ℹ️ Opcional - Ingresa el país de origen de esta cocina", font=('Arial', 9, 'italic'), bg='white', fg='#757575').pack(anchor='w', pady=(3, 0))
+        
+        # ===== DESCRIPCIÓN =====
+        descripcion_frame = tk.Frame(form, bg='white')
+        descripcion_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        tk.Label(descripcion_frame, text="📝 Descripción:", font=('Arial', 11, 'bold'), bg='white', fg='#FF6F00').pack(anchor='w', pady=(0, 5))
+        self.text_descripcion = tk.Text(descripcion_frame, height=6, font=('Arial', 10), wrap=tk.WORD)
+        self.text_descripcion.pack(fill=tk.BOTH, expand=True)
+        tk.Label(descripcion_frame, text="ℹ️ Opcional - Describe características, platos típicos, técnicas culinarias, etc.", font=('Arial', 9, 'italic'), bg='white', fg='#757575').pack(anchor='w', pady=(3, 0))
+    
+    def _validar_nombre(self):
+        """Valida el campo nombre"""
+        nombre = self.entry_nombre.get().strip()
+        if not nombre:
+            self.label_nombre_error.config(text="⚠️ El nombre es obligatorio")
+            return False
+        if len(nombre) < 3:
+            self.label_nombre_error.config(text="⚠️ El nombre debe tener al menos 3 caracteres")
+            return False
+        self.label_nombre_error.config(text="")
+        return True
     
     def cargar_datos(self):
         """Carga datos para editar"""
@@ -161,24 +214,26 @@ class VentanaFormularioCuisine:
                 self.text_descripcion.insert('1.0', cuisine['description'])
     
     def guardar(self):
-        """Guarda o actualiza"""
-        #Valida campos
-        nombre = self.entry_nombre.get().strip()
-        if not nombre:
-            messagebox.showwarning("Advertencia", "El nombre es obligatorio")
+        """Guarda o actualiza con validaciones"""
+        if not self._validar_nombre():
+            messagebox.showwarning("Validación", "Por favor corrige el nombre")
             return
         
+        nombre = self.entry_nombre.get().strip()
         pais = self.entry_pais.get().strip()
         descripcion = self.text_descripcion.get('1.0', tk.END).strip()
         
-        #Guardar o actualizar
         if self.modo == 'nuevo':
             if agregar_cuisines(nombre, descripcion, pais):
-                messagebox.showinfo("Éxito", "Tipo de cocina creado")
+                messagebox.showinfo("✅ Éxito", f"Tipo de cocina '{nombre}' creado correctamente")
                 self.ventana_cuisines.cargar_cuisines()
                 self.ventana.destroy()
+            else:
+                messagebox.showerror("❌ Error", "No se pudo crear el tipo de cocina")
         else:
-            actualizar_cuisines(self.cuisine_id, nombre, descripcion, pais)
-            messagebox.showinfo("Éxito", "Tipo de cocina actualizado")
-            self.ventana_cuisines.cargar_cuisines()
-            self.ventana.destroy()
+            if actualizar_cuisines(self.cuisine_id, nombre, descripcion, pais):
+                messagebox.showinfo("✅ Éxito", f"Tipo de cocina '{nombre}' actualizado correctamente")
+                self.ventana_cuisines.cargar_cuisines()
+                self.ventana.destroy()
+            else:
+                messagebox.showerror("❌ Error", "No se pudo actualizar el tipo de cocina")

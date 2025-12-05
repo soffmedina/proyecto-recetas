@@ -78,9 +78,10 @@ def eliminar_ingrediente_por_id(ingrediente_id):
             cursor.execute("DELETE FROM ingredients WHERE id = %s", (ingrediente_id,))
             connection.commit()
             print(success(" Ingrediente eliminado exitosamente."))
+            return True
         except Exception as e:
             print(error(f" Error al eliminar ingrediente: {e}"))
-            return None
+            return False
         finally:
             cursor.close()
             connection.close()
@@ -98,9 +99,10 @@ def actualizar_ingrediente(ingrediente_id, name):
             cursor.execute(query, (name, ingrediente_id))
             connection.commit()
             print(success(" Ingrediente actualizado exitosamente."))
+            return True
         except Exception as e:
             print(error(f" Error al actualizar ingrediente: {e}"))
-            return None
+            return False
         finally:
             cursor.close()
             connection.close()

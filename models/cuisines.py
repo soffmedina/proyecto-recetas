@@ -9,6 +9,10 @@ def obtener_cuisines():
             cursor = connection.cursor(dictionary=True)
             cursor.execute("SELECT * FROM cuisines ORDER BY name")
             cuisines = cursor.fetchall()
+            # Normalizar clave: algunos esquemas pueden tener 'county_origin' (typo)
+            for c in cuisines:
+                if 'county_origin' in c and 'country_origin' not in c:
+                    c['country_origin'] = c.get('county_origin')
             return cuisines
         except Exception as e:
             print(error(f" Error al obtener cuisines: {e}"))
@@ -22,18 +26,19 @@ def agregar_cuisines(name, description="", country_origin=""):
     if connection:
         try:
             cursor = connection.cursor()
+            # Usar 'county_origin' por compatibilidad con esquemas existentes
             query = """
-                INSERT INTO cuisines (name, description, country_origin)
+                INSERT INTO cuisines (name, description, county_origin)
                 VALUES (%s, %s, %s)
             """
             cursor.execute(query, (name, description, country_origin))
             connection.commit()
             cuisine_id = cursor.lastrowid
-            print(success(" Cuisines '{name}' agregada exitosamente."))
-            return cuisine_id
+            print(success(f" Cuisine '{name}' agregada exitosamente."))
+            return True
         except Exception as e:
             print(error(f" Error al agregar cuisines: {e}"))
-            return None
+            return False
         finally:
             cursor.close()
             connection.close()
@@ -45,6 +50,9 @@ def obtener_cuisines_por_id(cuisine_id):
             cursor = connection.cursor(dictionary=True)
             cursor.execute("SELECT * FROM cuisines WHERE id = %s", (cuisine_id,))
             cuisines = cursor.fetchone()
+            # Normalizar clave si existe el typo en la BD
+            if cuisines and 'county_origin' in cuisines and 'country_origin' not in cuisines:
+                cuisines['country_origin'] = cuisines.get('county_origin')
             return cuisines
         except Exception as e:
             print(error(f" Error al obtener cuisines por ID: {e}"))
@@ -75,17 +83,19 @@ def actualizar_cuisines(cuisine_id, name, description="", country_origin=""):
     if connection:
         try:
             cursor = connection.cursor()
+            # Usar 'county_origin' por compatibilidad con esquemas existentes
             query = """
                 UPDATE cuisines
-                SET name = %s, description = %s, country_origin = %s
+                SET name = %s, description = %s, county_origin = %s
                 WHERE id = %s
             """
             cursor.execute(query, (name, description, country_origin, cuisine_id))
             connection.commit()
             print(success(" Cuisine actualizada exitosamente."))
+            return True
         except Exception as e:
             print(error(f" Error al actualizar cuisine: {e}"))
-            return None
+            return False
         finally:
             cursor.close()
             connection.close()

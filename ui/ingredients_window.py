@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-from models.ingredients import actualizar_ingrediente, agregar_ingrediente, eliminar_ingrediente_por_id, obtener_ingrediente
+from models.ingredients import actualizar_ingrediente, agregar_ingrediente, eliminar_ingrediente_por_id, obtener_ingrediente, obtener_ingrediente_por_id
 
 class VentanaIngredientes(tk.Toplevel):
     
@@ -77,7 +77,7 @@ class VentanaIngredientes(tk.Toplevel):
             return
         item = self.tree.item(seleccion[0])
         ing_id = item['values'][0]
-        VentanaFormularioIngrediente(self.main_window.root, self, modo='editar', ingrediente_id=ing_id)
+        VentanaFormularioIngrediente(self.main_window, self, modo='editar', ingrediente_id=ing_id)
     
     def eliminar_ingrediente(self):
         """Eliminar"""
@@ -128,14 +128,17 @@ class VentanaFormularioIngrediente:
         self.entry_nombre.grid(row=0, column=1, pady=10)
         self.entry_nombre.focus()
        
-        # Botón Guardar
-        btn_guardar = tk.Button(frame, text="💾 Guardar", command=self.guardar_ingrediente, bg=self.ventana_ingredientes.main_window.COLOR_PRIMARIO, fg='white', font=('Arial', 11), padx=20, pady=8, cursor='hand2', bd=0)
-        btn_guardar.grid(row=1, column=0, columnspan=2, pady=20)
+        # Botones
+        btn_frame = tk.Frame(frame, bg='white')
+        btn_frame.grid(row=1, column=0, columnspan=2, pady=20)
+        
+        tk.Button(btn_frame, text="💾 Guardar", command=self.guardar_ingrediente, bg='#4CAF50', fg='white', font=('Arial', 11, 'bold'), padx=20, pady=8, cursor='hand2', bd=0).pack(side=tk.LEFT, padx=5)
+        tk.Button(btn_frame, text="❌ Cancelar", command=self.ventana.destroy, bg='#757575', fg='white', font=('Arial', 11), padx=20, pady=8, cursor='hand2', bd=0).pack(side=tk.LEFT, padx=5)
     
     
     def cargar_datos(self):
         """Cargar datos para editar"""
-        ingrediente = obtener_ingrediente(self.ingrediente_id)
+        ingrediente = obtener_ingrediente_por_id(self.ingrediente_id)
         if ingrediente:
             self.entry_nombre.insert(0, ingrediente['name'])
             
