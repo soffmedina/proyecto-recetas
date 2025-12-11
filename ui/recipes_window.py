@@ -4,6 +4,8 @@ from tkinter import ttk, messagebox, scrolledtext
 from models.author import obtener_author, obtener_author_por_id
 from models.cuisines import obtener_cuisines, obtener_cuisines_por_id
 from models.recipes import actualizar_receta, agregar_receta, eliminar_receta_por_id, obtener_receta_por_id, obtener_recetas
+from models.ingredients import obtener_ingrediente
+from models.recipe_ingredients import obtener_ingredientes_receta, agregar_ingrediente_a_receta, eliminar_ingrediente_de_receta
 
 class VentanaRecetas(tk.Toplevel):
     
@@ -319,6 +321,53 @@ class VentanaFormularioReceta:
         self.combo_cuisine.pack(fill=tk.X)
         tk.Label(cuisine_frame, text="ℹ️ Opcional - Selecciona el tipo de cocina", font=('Arial', 9, 'italic'), bg='white', fg='#757575').pack(anchor='w', pady=(3, 0))
         
+        # ===== INGREDIENTES =====
+        ingredientes_frame = tk.Frame(form, bg='white')
+        ingredientes_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        tk.Label(ingredientes_frame, text="🥕 Ingredientes:", font=('Arial', 11, 'bold'), bg='white', fg='#2196F3').pack(anchor='w', pady=(0, 5))
+        
+        # Frame para selector de ingredientes
+        selector_frame = tk.Frame(ingredientes_frame, bg='white')
+        selector_frame.pack(fill=tk.X, pady=(0, 8))
+        
+        tk.Label(selector_frame, text="Ingrediente:", font=('Arial', 10), bg='white').pack(side=tk.LEFT, padx=(0, 5))
+        ingredientes_lista = obtener_ingrediente()
+        self.ingredientes_disponibles = {ing['id']: ing['name'] for ing in ingredientes_lista}
+        self.combo_ingrediente = ttk.Combobox(selector_frame, 
+                                               values=[ing['name'] for ing in ingredientes_lista],
+                                               state='readonly', font=('Arial', 10), width=20)
+        self.combo_ingrediente.pack(side=tk.LEFT, padx=5)
+        
+        tk.Label(selector_frame, text="Cantidad:", font=('Arial', 10), bg='white').pack(side=tk.LEFT, padx=(10, 5))
+        self.entry_cantidad = ttk.Entry(selector_frame, font=('Arial', 10), width=10)
+        self.entry_cantidad.pack(side=tk.LEFT, padx=5)
+        
+        tk.Label(selector_frame, text="Unidad:", font=('Arial', 10), bg='white').pack(side=tk.LEFT, padx=(10, 5))
+        self.combo_unidad = ttk.Combobox(selector_frame, 
+                                          values=['g', 'kg', 'ml', 'l', 'taza', 'cuchara', 'cucharita', 'unidad'],
+                                          state='readonly', font=('Arial', 10), width=10)
+        self.combo_unidad.pack(side=tk.LEFT, padx=5)
+        
+        tk.Button(selector_frame, text="➕ Agregar", command=self._agregar_ingrediente, 
+                 bg='#4CAF50', fg='white', font=('Arial', 9), padx=10, pady=3, cursor='hand2', bd=0).pack(side=tk.LEFT, padx=5)
+        
+        # Treeview con ingredientes agregados
+        self.tree_ingredientes = ttk.Treeview(ingredientes_frame, columns=('Ingrediente', 'Cantidad', 'Unidad'), show='headings', height=4)
+        self.tree_ingredientes.heading('Ingrediente', text='Ingrediente')
+        self.tree_ingredientes.heading('Cantidad', text='Cantidad')
+        self.tree_ingredientes.heading('Unidad', text='Unidad')
+        self.tree_ingredientes.column('Ingrediente', width=150)
+        self.tree_ingredientes.column('Cantidad', width=80)
+        self.tree_ingredientes.column('Unidad', width=80)
+        self.tree_ingredientes.pack(fill=tk.X, pady=(0, 8))
+        
+        # Botón para eliminar ingrediente seleccionado
+        tk.Button(ingredientes_frame, text="❌ Eliminar Ingrediente Seleccionado", command=self._eliminar_ingrediente,
+                 bg='#F44336', fg='white', font=('Arial', 9), padx=10, pady=3, cursor='hand2', bd=0).pack(anchor='w', pady=(0, 8))
+        
+        tk.Label(ingredientes_frame, text="ℹ️ Opcional - Agrega los ingredientes que contiene esta receta", font=('Arial', 9, 'italic'), bg='white', fg='#757575').pack(anchor='w', pady=(0, 15))
+        
         # ===== PREPARACIÓN =====
         preparacion_frame = tk.Frame(form, bg='white')
         preparacion_frame.pack(fill=tk.X, pady=(0, 15))
@@ -329,6 +378,50 @@ class VentanaFormularioReceta:
         self.label_prep_error = tk.Label(preparacion_frame, text="", font=('Arial', 9), bg='white', fg='#F44336')
         self.label_prep_error.pack(anchor='w', pady=(3, 0))
         tk.Label(preparacion_frame, text="ℹ️ Obligatorio - Detalla paso a paso cómo preparar la receta", font=('Arial', 9, 'italic'), bg='white', fg='#757575').pack(anchor='w', pady=(3, 0))
+    
+    def _agregar_ingrediente(self):
+        """Agrega un ingrediente al treeview"""
+        ingrediente_nombre = self.combo_ingrediente.get().strip()
+        cantidad = self.entry_cantidad.get().strip()
+        unidad = self.combo_unidad.get().strip()
+        
+        if not ingrediente_nombre:
+            messagebox.showwarning("Validación", "Selecciona un ingrediente")
+            return
+        
+        # Encontrar el ID del ingrediente seleccionado
+        ingrediente_id = None
+        for ing_id, ing_name in self.ingredientes_disponibles.items():
+            if ing_name == ingrediente_nombre:
+                ingrediente_id = ing_id
+                break
+        
+        if ingrediente_id is None:
+            messagebox.showerror("Error", "No se encontró el ingrediente")
+            return
+        
+        # Verificar si ya está agregado
+        for item in self.tree_ingredientes.get_children():
+            if self.tree_ingredientes.item(item)['values'][0] == ingrediente_nombre:
+                messagebox.showinfo("Aviso", "Este ingrediente ya está agregado a la receta")
+                return
+        
+        # Agregar al treeview
+        self.tree_ingredientes.insert('', tk.END, values=(ingrediente_nombre, cantidad, unidad), tags=(ingrediente_id,))
+        
+        # Limpiar campos
+        self.combo_ingrediente.set('')
+        self.entry_cantidad.delete(0, tk.END)
+        self.combo_unidad.set('')
+    
+    def _eliminar_ingrediente(self):
+        """Elimina el ingrediente seleccionado del treeview"""
+        seleccion = self.tree_ingredientes.selection()
+        if not seleccion:
+            messagebox.showinfo("Aviso", "Selecciona un ingrediente para eliminar")
+            return
+        
+        self.tree_ingredientes.delete(seleccion[0])
     
     def _validar_titulo(self):
         """Valida el título"""
@@ -381,6 +474,11 @@ class VentanaFormularioReceta:
         
         if receta['preparation']:
             self.text_preparacion.insert('1.0', receta['preparation'])
+        
+        # Cargar ingredientes existentes
+        ingredientes_receta = obtener_ingredientes_receta(self.receta_id)
+        for ing in ingredientes_receta:
+            self.tree_ingredientes.insert('', tk.END, values=(ing['name'], ing.get('quantity', ''), ing.get('unit', '')), tags=(ing['id'],))
     
     def guardar_receta(self):
         """Guarda o actualiza la receta con validaciones"""
@@ -407,6 +505,8 @@ class VentanaFormularioReceta:
         if self.modo == 'nuevo':
             receta_id = agregar_receta(titulo, descripcion, preparacion, author_id, cuisine_id)
             if receta_id:
+                # Guardar ingredientes
+                self._guardar_ingredientes(receta_id)
                 messagebox.showinfo("✅ Éxito", f"Receta '{titulo}' creada correctamente")
                 self.ventana_recetas.cargar_recetas()
                 self.ventana.destroy()
@@ -414,11 +514,37 @@ class VentanaFormularioReceta:
                 messagebox.showerror("❌ Error", "No se pudo crear la receta")
         else:
             if actualizar_receta(self.receta_id, titulo, descripcion, preparacion, author_id, cuisine_id):
+                # Actualizar ingredientes
+                self._actualizar_ingredientes(self.receta_id)
                 messagebox.showinfo("✅ Éxito", f"Receta '{titulo}' actualizada correctamente")
                 self.ventana_recetas.cargar_recetas()
                 self.ventana.destroy()
             else:
                 messagebox.showerror("❌ Error", "No se pudo actualizar la receta")
+    
+    def _guardar_ingredientes(self, receta_id):
+        """Guarda los ingredientes agregados a la receta"""
+        for item in self.tree_ingredientes.get_children():
+            valores = self.tree_ingredientes.item(item)['values']
+            tags = self.tree_ingredientes.item(item)['tags']
+            ingrediente_id = int(tags[0]) if tags else None
+            cantidad = valores[1] if len(valores) > 1 else ''
+            unidad = valores[2] if len(valores) > 2 else ''
+            
+            if ingrediente_id:
+                agregar_ingrediente_a_receta(receta_id, ingrediente_id, cantidad, unidad, "")
+    
+    def _actualizar_ingredientes(self, receta_id):
+        """Actualiza los ingredientes de la receta (elimina actuales y agrega nuevos)"""
+        # Obtener ingredientes actuales
+        ingredientes_actuales = obtener_ingredientes_receta(receta_id)
+        
+        # Eliminar todos los ingredientes actuales
+        for ing in ingredientes_actuales:
+            eliminar_ingrediente_de_receta(receta_id, ing['id'])
+        
+        # Agregar nuevos ingredientes
+        self._guardar_ingredientes(receta_id)
                 
                 
 
@@ -506,8 +632,19 @@ class VentanaDetallesReceta:
         ing_frame = tk.Frame(frame, bg='#FFF9C4', relief=tk.SOLID, borderwidth=1)
         ing_frame.pack(fill=tk.X, pady=5)
         
-        # Aquí cargarías los ingredientes de la tabla recipe_ingredients
-        tk.Label(ing_frame, text="(Ingredientes por implementar con tabla pivote)", font=('Arial', 10, 'italic'), bg='#FFF9C4').pack(padx=15, pady=10)
+        # Cargar ingredientes de la tabla pivote
+        ingredientes = obtener_ingredientes_receta(self.receta_id)
+        if ingredientes:
+            for ing in ingredientes:
+                ing_text = f"• {ing['name']}"
+                if ing.get('quantity'):
+                    ing_text += f" ({ing['quantity']}"
+                    if ing.get('unit'):
+                        ing_text += f" {ing['unit']}"
+                    ing_text += ")"
+                tk.Label(ing_frame, text=ing_text, font=('Arial', 11), bg='#FFF9C4', justify=tk.LEFT).pack(anchor='w', padx=15, pady=3)
+        else:
+            tk.Label(ing_frame, text="Sin ingredientes especificados", font=('Arial', 10, 'italic'), bg='#FFF9C4').pack(padx=15, pady=10)
         
         # Preparación
         if receta['preparation']:

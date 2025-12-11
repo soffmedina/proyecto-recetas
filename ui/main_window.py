@@ -20,7 +20,7 @@ class MainWindow(tk.Tk):
         #self.state('zoomed')  # Maximizar ventana
         
         # Colores del tema
-        self.COLOR_PRIMARIO = "#505050"
+        self.COLOR_PRIMARIO = "#688F0E"
         self.COLOR_SECUNDARIO = "#AEACAB"
         self.COLOR_FONDO = "#F5F5F5"
         self.COLOR_BLANCO = "#FFFFFF"

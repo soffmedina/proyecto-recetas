@@ -8,10 +8,10 @@ def obtener_ingredientes_receta(recipe_id):
         try:
             cursor = connection.cursor(dictionary=True)
             query = """
-                SELECT i.*
-                FROM ingrediente i
-                JOIN recipe_ingredients ri ON i.id = ri.ingrediente_id
-                WHERE ri.receta_id = %s
+                SELECT i.id, i.name, ri.quantity, ri.unit, ri.notes
+                FROM ingredients i
+                JOIN recipe_ingredients ri ON i.id = ri.ingredient_id
+                WHERE ri.recipe_id = %s
             """
             cursor.execute(query, (recipe_id,))
             ingredientes = cursor.fetchall()
@@ -35,7 +35,9 @@ def agregar_ingrediente_a_receta(recipe_id, ingredient_id, quantity="", unit="",
             """
             cursor.execute(query, (recipe_id, ingredient_id, quantity, unit, notes))
             connection.commit()
+            lastrowid = cursor.lastrowid
             print(success(" Ingrediente agregado a la receta exitosamente."))
+            return lastrowid
         except Exception as e:
             print(error(f" Error al agregar ingrediente a la receta: {e}"))
             return None
@@ -55,9 +57,10 @@ def eliminar_ingrediente_de_receta(recipe_id, ingredient_id):
             cursor.execute(query, (recipe_id, ingredient_id))
             connection.commit()
             print(success(" Ingrediente eliminado de la receta exitosamente."))
+            return True
         except Exception as e:
             print(error(f" Error al eliminar ingrediente de la receta: {e}"))
-            return None
+            return False
         finally:
             cursor.close()
             connection.close()
