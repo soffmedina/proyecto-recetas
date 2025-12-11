@@ -139,7 +139,7 @@ class VentanaAutores(tk.Toplevel):
         """Ver detalles de la receta seleccionada"""
         seleccion = self.tree.selection()
         if not seleccion:
-            messagebox.showwarning("Advertencia", "Selecciona una receta")
+            messagebox.showwarning("Advertencia", "Selecciona un autor")
             return
         
         item = self.tree.item(seleccion[0])
