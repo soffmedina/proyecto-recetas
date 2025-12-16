@@ -29,7 +29,6 @@ def agregar_author(name,  email, password_hash, avatar_url="", biography=""):
             """
             cursor.execute(query, (name, email, password_hash, avatar_url, biography))
             connection.commit()
-            author_id = cursor.lastrowid
             return True
         except Exception as e:
             print(error(f" Error al agregar autor: {e}"))

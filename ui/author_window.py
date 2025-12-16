@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext
 import re
 
+from controller.AuthorController import AuthorController
 from models.author import actualizar_author, agregar_author, eliminar_author, obtener_author, obtener_author_por_id
 from models.cuisines import obtener_cuisines_por_id
 from models.ingredients import actualizar_ingrediente, agregar_ingrediente, obtener_ingrediente_por_id
@@ -733,7 +734,7 @@ class VentanaFormularioAutor:
         
         if self.modo == 'nuevo':
             # Crear nuevo autor
-            if agregar_author(name, email, password, avatar_url, biography):
+            if AuthorController.create_author(name, email, password, avatar_url, biography):
                 messagebox.showinfo("✅ Éxito", f"Autor '{name}' creado correctamente")
                 self.ventana_autores.cargar_autores()
                 self.ventana.destroy()
