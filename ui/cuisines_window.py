@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-from models.cuisines import actualizar_cuisines, agregar_cuisines, eliminar_cuisines, obtener_cuisines, obtener_cuisines_por_id
+from controller.CuisineController import CuisineController
 
 
 class VentanaCuisines(tk.Toplevel):  
@@ -62,7 +62,7 @@ class VentanaCuisines(tk.Toplevel):
             self.tree.delete(item)
         
         #Obtener cuisines
-        cuisines = obtener_cuisines()
+        cuisines = CuisineController.get_all_cuisines()
         for c in cuisines:
             desc = c['description'][:50] + '...' if c['description'] and len(c['description']) > 50 else (c['description'] or '')
             self.tree.insert('', tk.END, values=(c['id'], c['name'], c['country_origin'] or 'N/A', desc))
@@ -93,9 +93,11 @@ class VentanaCuisines(tk.Toplevel):
         
         confirmar = messagebox.askyesno("Confirmar", f"¿Eliminar '{cuisine_nombre}'?")
         if confirmar:
-            eliminar_cuisines(cuisine_id)
-            messagebox.showinfo("Éxito", "Tipo de cocina eliminado")
-            self.cargar_cuisines()
+            if CuisineController.delete_cuisine(cuisine_id):
+                messagebox.showinfo("Éxito", "Tipo de cocina eliminado")
+                self.cargar_cuisines()
+            else:
+                messagebox.showerror("Error", "No se pudo eliminar la cocina")
 
 
 # ==================== FORMULARIO CUISINE ====================
@@ -205,7 +207,7 @@ class VentanaFormularioCuisine:
     
     def cargar_datos(self):
         """Carga datos para editar"""
-        cuisine = obtener_cuisines_por_id(self.cuisine_id)
+        cuisine = CuisineController.get_cuisine_by_id(self.cuisine_id)
         if cuisine:
             self.entry_nombre.insert(0, cuisine['name'])
             if cuisine['country_origin']:
@@ -224,14 +226,14 @@ class VentanaFormularioCuisine:
         descripcion = self.text_descripcion.get('1.0', tk.END).strip()
         
         if self.modo == 'nuevo':
-            if agregar_cuisines(nombre, descripcion, pais):
+            if CuisineController.create_cuisine(nombre, descripcion, pais):
                 messagebox.showinfo("✅ Éxito", f"Tipo de cocina '{nombre}' creado correctamente")
                 self.ventana_cuisines.cargar_cuisines()
                 self.ventana.destroy()
             else:
                 messagebox.showerror("❌ Error", "No se pudo crear el tipo de cocina")
         else:
-            if actualizar_cuisines(self.cuisine_id, nombre, descripcion, pais):
+            if CuisineController.update_cuisine(self.cuisine_id, nombre, descripcion, pais):
                 messagebox.showinfo("✅ Éxito", f"Tipo de cocina '{nombre}' actualizado correctamente")
                 self.ventana_cuisines.cargar_cuisines()
                 self.ventana.destroy()

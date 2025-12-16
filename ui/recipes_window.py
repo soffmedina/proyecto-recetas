@@ -1,11 +1,11 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext
 
-from models.author import obtener_author, obtener_author_por_id
-from models.cuisines import obtener_cuisines, obtener_cuisines_por_id
-from models.recipes import actualizar_receta, agregar_receta, eliminar_receta_por_id, obtener_receta_por_id, obtener_recetas
-from models.ingredients import obtener_ingrediente
-from models.recipe_ingredients import obtener_ingredientes_receta, agregar_ingrediente_a_receta, eliminar_ingrediente_de_receta
+from controller.AuthorController import AuthorController
+from controller.CuisineController import CuisineController
+from controller.RecipeController import RecipeController
+from controller.IngredientController import IngredientController
+from controller.RecipeIngredientController import RecipeIngredientController
 
 class VentanaRecetas(tk.Toplevel):
     
@@ -114,9 +114,9 @@ class VentanaRecetas(tk.Toplevel):
             self.tree.delete(item)
         
         # Obtener recetas
-        recetas = obtener_recetas()
-        autores = {a['id']: a['name'] for a in obtener_author()}
-        cuisines = {c['id']: c['name'] for c in obtener_cuisines()}
+        recetas = RecipeController.get_all_recipes()
+        autores = {a['id']: a['name'] for a in AuthorController.get_all_authors()}
+        cuisines = {c['id']: c['name'] for c in CuisineController.get_all_cuisines()}
         
         # Insertar en el Treeview
         for receta in recetas:
@@ -144,9 +144,9 @@ class VentanaRecetas(tk.Toplevel):
             self.tree.delete(item)
         
         # Buscar recetas
-        recetas = obtener_recetas()
-        autores = {a['id']: a['name'] for a in obtener_author()}
-        cuisines = {c['id']: c['name'] for c in obtener_cuisines()}
+        recetas = RecipeController.get_all_recipes()
+        autores = {a['id']: a['name'] for a in AuthorController.get_all_authors()}
+        cuisines = {c['id']: c['name'] for c in CuisineController.get_all_cuisines()}
         
         # Filtrar por término
         for receta in recetas:
@@ -206,7 +206,7 @@ class VentanaRecetas(tk.Toplevel):
                                         f"¿Eliminar la receta '{receta_titulo}'?\n\nEsta acción no se puede deshacer.")
         
         if confirmar:
-            if eliminar_receta_por_id(receta_id):
+            if RecipeController.delete_recipe(receta_id):
                 messagebox.showinfo("Éxito", "Receta eliminada correctamente")
                 self.cargar_recetas()
 
@@ -300,7 +300,7 @@ class VentanaFormularioReceta:
         autor_frame.pack(fill=tk.X, pady=(0, 15))
         
         tk.Label(autor_frame, text="👨‍🍳 Autor:", font=('Arial', 11, 'bold'), bg='white', fg='#2196F3').pack(anchor='w', pady=(0, 5))
-        autores = obtener_author()
+        autores = AuthorController.get_all_authors()
         autor_valores = [f"{a['id']} - {a['name']}" for a in autores]
         autor_valores.insert(0, "Sin autor")
         self.combo_autor = ttk.Combobox(autor_frame, values=autor_valores, state='readonly', font=('Arial', 10), width=62)
@@ -313,7 +313,7 @@ class VentanaFormularioReceta:
         cuisine_frame.pack(fill=tk.X, pady=(0, 15))
         
         tk.Label(cuisine_frame, text="🌎 Tipo de Cocina:", font=('Arial', 11, 'bold'), bg='white', fg='#2196F3').pack(anchor='w', pady=(0, 5))
-        cuisines = obtener_cuisines()
+        cuisines = CuisineController.get_all_cuisines()
         cuisine_valores = [f"{c['id']} - {c['name']}" for c in cuisines]
         cuisine_valores.insert(0, "Sin tipo de cocina")
         self.combo_cuisine = ttk.Combobox(cuisine_frame, values=cuisine_valores, state='readonly', font=('Arial', 10), width=62)
@@ -332,7 +332,7 @@ class VentanaFormularioReceta:
         selector_frame.pack(fill=tk.X, pady=(0, 8))
         
         tk.Label(selector_frame, text="Ingrediente:", font=('Arial', 10), bg='white').pack(side=tk.LEFT, padx=(0, 5))
-        ingredientes_lista = obtener_ingrediente()
+        ingredientes_lista = IngredientController.get_all_ingredients()
         self.ingredientes_disponibles = {ing['id']: ing['name'] for ing in ingredientes_lista}
         self.combo_ingrediente = ttk.Combobox(selector_frame, 
                                                values=[ing['name'] for ing in ingredientes_lista],
@@ -449,7 +449,7 @@ class VentanaFormularioReceta:
     
     def cargar_datos_receta(self):
         """Carga los datos de la receta para editar"""
-        receta = obtener_receta_por_id(self.receta_id)
+        receta = RecipeController.get_recipe_by_id(self.receta_id)
         if not receta:
             messagebox.showerror("❌ Error", "No se pudo cargar la receta")
             self.ventana.destroy()
@@ -476,7 +476,7 @@ class VentanaFormularioReceta:
             self.text_preparacion.insert('1.0', receta['preparation'])
         
         # Cargar ingredientes existentes
-        ingredientes_receta = obtener_ingredientes_receta(self.receta_id)
+        ingredientes_receta = RecipeIngredientController.get_ingredients_for_recipe(self.receta_id)
         for ing in ingredientes_receta:
             self.tree_ingredientes.insert('', tk.END, values=(ing['name'], ing.get('quantity', ''), ing.get('unit', '')), tags=(ing['id'],))
     
@@ -503,7 +503,7 @@ class VentanaFormularioReceta:
         
         # Guardar o actualizar
         if self.modo == 'nuevo':
-            receta_id = agregar_receta(titulo, descripcion, preparacion, author_id, cuisine_id)
+            receta_id = RecipeController.create_recipe(titulo, preparacion, author_id, cuisine_id)
             if receta_id:
                 # Guardar ingredientes
                 self._guardar_ingredientes(receta_id)
@@ -513,7 +513,7 @@ class VentanaFormularioReceta:
             else:
                 messagebox.showerror("❌ Error", "No se pudo crear la receta")
         else:
-            if actualizar_receta(self.receta_id, titulo, descripcion, preparacion, author_id, cuisine_id):
+            if RecipeController.update_recipe(self.receta_id, titulo, preparacion, author_id, cuisine_id):
                 # Actualizar ingredientes
                 self._actualizar_ingredientes(self.receta_id)
                 messagebox.showinfo("✅ Éxito", f"Receta '{titulo}' actualizada correctamente")
@@ -532,16 +532,16 @@ class VentanaFormularioReceta:
             unidad = valores[2] if len(valores) > 2 else ''
             
             if ingrediente_id:
-                agregar_ingrediente_a_receta(receta_id, ingrediente_id, cantidad, unidad, "")
+                RecipeIngredientController.add_ingredient_to_recipe(receta_id, ingrediente_id, cantidad, unidad, "")
     
     def _actualizar_ingredientes(self, receta_id):
         """Actualiza los ingredientes de la receta (elimina actuales y agrega nuevos)"""
         # Obtener ingredientes actuales
-        ingredientes_actuales = obtener_ingredientes_receta(receta_id)
+        ingredientes_actuales = RecipeIngredientController.get_ingredients_for_recipe(receta_id)
         
         # Eliminar todos los ingredientes actuales
         for ing in ingredientes_actuales:
-            eliminar_ingrediente_de_receta(receta_id, ing['id'])
+            RecipeIngredientController.remove_ingredient_from_recipe(receta_id, ing['id'])
         
         # Agregar nuevos ingredientes
         self._guardar_ingredientes(receta_id)
@@ -584,7 +584,7 @@ class VentanaDetallesReceta:
     
     def cargar_detalles(self):
         """Carga y muestra los detalles de la receta"""
-        receta = obtener_receta_por_id(self.receta_id)
+        receta = RecipeController.get_recipe_by_id(self.receta_id)
         if not receta:
             messagebox.showerror("Error", "No se pudo cargar la receta")
             self.ventana.destroy()
@@ -604,8 +604,8 @@ class VentanaDetallesReceta:
         info_frame.pack(fill=tk.X, pady=10)
         
         # Obtener autor y cuisine
-        autor = obtener_author_por_id(receta['author_id']) if receta['author_id'] else None
-        cuisine = obtener_cuisines_por_id(receta['cuisine_id']) if receta['cuisine_id'] else None
+        autor = AuthorController.get_author_by_id(receta['author_id']) if receta['author_id'] else None
+        cuisine = CuisineController.get_cuisine_by_id(receta['cuisine_id']) if receta['cuisine_id'] else None
         
         info_data = [
             ("👨‍🍳 Autor:", autor['name'] if autor else 'Sin autor'),
@@ -633,7 +633,7 @@ class VentanaDetallesReceta:
         ing_frame.pack(fill=tk.X, pady=5)
         
         # Cargar ingredientes de la tabla pivote
-        ingredientes = obtener_ingredientes_receta(self.receta_id)
+        ingredientes = RecipeIngredientController.get_ingredients_for_recipe(self.receta_id)
         if ingredientes:
             for ing in ingredientes:
                 ing_text = f"• {ing['name']}"

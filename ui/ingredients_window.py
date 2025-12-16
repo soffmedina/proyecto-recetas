@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-from models.ingredients import actualizar_ingrediente, agregar_ingrediente, eliminar_ingrediente_por_id, obtener_ingrediente, obtener_ingrediente_por_id
+from controller.IngredientController import IngredientController
 
 class VentanaIngredientes(tk.Toplevel):
     
@@ -61,7 +61,7 @@ class VentanaIngredientes(tk.Toplevel):
             self.tree.delete(item)
         
         #Obtener ingredientes
-        ingredientes = obtener_ingrediente()
+        ingredientes = IngredientController.get_all_ingredients()
         for ing in ingredientes:
             self.tree.insert('', tk.END, values=(ing['id'], ing['name'], str(ing['created_at'])[:19]))
     
@@ -91,9 +91,11 @@ class VentanaIngredientes(tk.Toplevel):
         
         confirmar = messagebox.askyesno("Confirmar", f"¿Eliminar '{ing_nombre}'?")
         if confirmar:
-            eliminar_ingrediente_por_id(ing_id)
-            messagebox.showinfo("Éxito", "Ingrediente eliminado")
-            self.cargar_ingredientes()
+            if IngredientController.delete_ingredient(ing_id):
+                messagebox.showinfo("Éxito", "Ingrediente eliminado")
+                self.cargar_ingredientes()
+            else:
+                messagebox.showerror("Error", "No se pudo eliminar el ingrediente")
 
 
 # ==================== FORMULARIO INGREDIENTE ====================
@@ -138,7 +140,7 @@ class VentanaFormularioIngrediente:
     
     def cargar_datos(self):
         """Cargar datos para editar"""
-        ingrediente = obtener_ingrediente_por_id(self.ingrediente_id)
+        ingrediente = IngredientController.get_ingredient_by_id(self.ingrediente_id)
         if ingrediente:
             self.entry_nombre.insert(0, ingrediente['name'])
             
@@ -152,13 +154,13 @@ class VentanaFormularioIngrediente:
         
         #Guardar o actualizar
         if self.modo == 'nuevo':
-            ingrediente_id = agregar_ingrediente(nombre)
+            ingrediente_id = IngredientController.create_ingredient(nombre)
             if ingrediente_id:
                 messagebox.showinfo("Éxito", "Ingrediente creado")
                 self.ventana_ingredientes.cargar_ingredientes()
                 self.ventana.destroy()
         else:
-            if actualizar_ingrediente(self.ingrediente_id, nombre):
+            if IngredientController.update_ingredient(self.ingrediente_id, nombre):
                 messagebox.showinfo("Éxito", "Ingrediente actualizado")
                 self.ventana_ingredientes.cargar_ingredientes()
                 self.ventana.destroy()

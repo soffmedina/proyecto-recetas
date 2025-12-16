@@ -1,10 +1,10 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from config.db import conectar_db
-from models.author import obtener_author
-from models.cuisines import obtener_cuisines
-from models.ingredients import obtener_ingrediente
-from models.recipes import obtener_recetas
+from controller.AuthorController import AuthorController
+from controller.CuisineController import CuisineController
+from controller.IngredientController import IngredientController
+from controller.RecipeController import RecipeController
 from .author_window import VentanaAutores
 from .cuisines_window import VentanaCuisines
 from .ingredients_window import VentanaIngredientes
@@ -185,10 +185,10 @@ class MainWindow(tk.Tk):
         cards_frame.pack(pady=20, padx=40)
         
         # Obtener estadísticas
-        total_recetas = len(obtener_recetas())
-        total_autores = len(obtener_author())
-        total_cuisines = len(obtener_cuisines())
-        total_ingredientes = len(obtener_ingrediente())
+        total_recetas = len(RecipeController.get_all_recipes())
+        total_autores = len(AuthorController.get_all_authors())
+        total_cuisines = len(CuisineController.get_all_cuisines())
+        total_ingredientes = len(IngredientController.get_all_ingredients())
         
         # Crear tarjetas
         estadisticas = [

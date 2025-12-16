@@ -3,10 +3,8 @@ from tkinter import ttk, messagebox, scrolledtext
 import re
 
 from controller.AuthorController import AuthorController
-from models.author import actualizar_author, agregar_author, eliminar_author, obtener_author, obtener_author_por_id
-from models.cuisines import obtener_cuisines_por_id
-from models.ingredients import actualizar_ingrediente, agregar_ingrediente, obtener_ingrediente_por_id
-from models.recipes import obtener_receta_por_autor
+from controller.CuisineController import CuisineController
+from controller.RecipeController import RecipeController
 
 
 class VentanaAutores(tk.Toplevel):
@@ -72,7 +70,7 @@ class VentanaAutores(tk.Toplevel):
         scrollbar = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
-        columns = ('ID', 'Nombre', 'Email', 'Biografía')
+        columns = ('ID', 'Nombre', 'Email')
         self.tree = ttk.Treeview(tree_frame, columns=columns, show='headings', yscrollcommand=scrollbar.set)
         scrollbar.config(command=self.tree.yview)
         
@@ -80,12 +78,10 @@ class VentanaAutores(tk.Toplevel):
         self.tree.heading('ID', text='ID')
         self.tree.heading('Nombre', text='Nombre')
         self.tree.heading('Email', text='Email')
-        self.tree.heading('Biografía', text='Biografía')
         
         self.tree.column('ID', width=50, anchor=tk.CENTER)
         self.tree.column('Nombre', width=250)
         self.tree.column('Email', width=300)
-        self.tree.column('Biografía', width=400)
         
         self.tree.pack(fill=tk.BOTH, expand=True)
         
@@ -99,13 +95,16 @@ class VentanaAutores(tk.Toplevel):
     
     def cargar_autores(self):
         """Carga autores"""
-        for item in self.tree.get_children():
-            self.tree.delete(item)
-        
-        autores = obtener_author()
-        for a in autores:
-            bio = a['biography'][:50] + '...' if a['biography'] and len(a['biography']) > 50 else (a['biography'] or '')
-            self.tree.insert('', tk.END, values=(a['id'], a['name'], a['email'], bio))
+        try:
+            for item in self.tree.get_children():
+                self.tree.delete(item)
+            
+            autores = AuthorController.get_all_authors()
+            for a in autores:
+                self.tree.insert('', tk.END, values=(a['id'], a['name'], a['email']))
+        except Exception as e:
+            print(f"Error cargando autores: {e}")
+            messagebox.showerror("Error", f"No se pudieron cargar los autores: {e}")
 
     def buscar_autores(self):
         """Busca autores por término (nombre, email o biografía)"""
@@ -118,7 +117,7 @@ class VentanaAutores(tk.Toplevel):
         for item in self.tree.get_children():
             self.tree.delete(item)
 
-        autores = obtener_author()
+        autores = AuthorController.get_all_authors()
 
         for a in autores:
             nombre = a.get('name', '') or ''
@@ -129,8 +128,7 @@ class VentanaAutores(tk.Toplevel):
                 termino.lower() in email.lower() or
                 termino.lower() in bio_full.lower()):
 
-                bio = bio_full[:50] + '...' if bio_full and len(bio_full) > 50 else bio_full
-                self.tree.insert('', tk.END, values=(a['id'], a['name'], a['email'], bio))
+                self.tree.insert('', tk.END, values=(a['id'], a['name'], a['email']))
     
     def abrir_formulario_nuevo(self):
         """Abre formulario nuevo"""
@@ -169,7 +167,7 @@ class VentanaAutores(tk.Toplevel):
         
         confirmar = messagebox.askyesno("Confirmar", f"¿Eliminar '{autor_nombre}'?")
         if confirmar:
-            if eliminar_author(autor_id):
+            if AuthorController.delete_author(autor_id):
                 messagebox.showinfo("Éxito", "Autor eliminado")
                 self.cargar_autores()
 
@@ -211,7 +209,7 @@ class VentanaDetallesAutor:
     
     def cargar_detalles(self):
         """Carga y muestra los detalles del autor"""
-        autor = obtener_author_por_id(self.autor_id)
+        autor = AuthorController.get_author_by_id(self.autor_id)
         if not autor:
             messagebox.showerror("Error", "No se pudo cargar el autor")
             self.ventana.destroy()
@@ -257,8 +255,7 @@ class VentanaDetallesAutor:
         
         info_data = [
             ("🆔 ID:", str(autor['id'])),
-            ("📅 Fecha de Registro:", str(autor['created_at'])[:19]),
-            ("🔗 Avatar URL:", autor['avatar_url'] if autor['avatar_url'] else 'No configurado')
+            ("📅 Fecha de Registro:", str(autor['created_at'])[:19])
         ]
         
         for label, value in info_data:
@@ -268,7 +265,7 @@ class VentanaDetallesAutor:
             tk.Label(row, text=value, font=('Arial', 11), bg='#FFF3E0').pack(side=tk.LEFT, padx=10)
         
         # Biografía
-        if autor['biography']:
+        if autor.get('biography'):
             tk.Label(frame,
                     text="📖 Biografía",
                     font=('Arial', 14, 'bold'),
@@ -295,7 +292,7 @@ class VentanaDetallesAutor:
                     text="Este autor no tiene biografía registrada.",
                     font=('Arial', 11, 'italic'),
                     bg='white',
-                    fg='#757575').pack(anchor='w', pady=5)
+                    fg='#757575').pack(anchor='w', pady=(5, 15))
         
         # Recetas del autor
         tk.Label(frame,
@@ -308,7 +305,7 @@ class VentanaDetallesAutor:
         recetas_frame.pack(fill=tk.BOTH, expand=True, pady=5)
         
         # Obtener recetas del autor
-        recetas = obtener_receta_por_autor(self.autor_id)
+        recetas = RecipeController.get_recipes_by_author(self.autor_id)
         
         if recetas:
             # Crear mini-tabla de recetas
@@ -360,7 +357,7 @@ class VentanaDetallesAutor:
         cuisines_autor = set()
         for receta in recetas:
             if receta['cuisine_id']:
-                cuisine = obtener_cuisines_por_id(receta['cuisine_id'])
+                cuisine = CuisineController.get_cuisine_by_id(receta['cuisine_id'])
                 if cuisine:
                     cuisines_autor.add(cuisine['name'])
         
@@ -621,21 +618,12 @@ class VentanaFormularioAutor:
         info_password = "Mínimo 6 caracteres" if self.modo == 'nuevo' else "Mínimo 6 caracteres (dejar en blanco para no cambiar)"
         tk.Label(password_frame, text=f"ℹ️ {info_password}", font=('Arial', 9, 'italic'), bg='white', fg='#757575').pack(anchor='w', pady=(2, 0))
         
-        # ===== AVATAR URL =====
-        avatar_frame = tk.Frame(form, bg='white')
-        avatar_frame.pack(fill=tk.X, pady=(0, 15))
-        
-        tk.Label(avatar_frame, text="🖼️ URL del Avatar:", font=('Arial', 11, 'bold'), bg='white', fg='#2E7D32').pack(anchor='w', pady=(0, 5))
-        self.entry_avatar_url = ttk.Entry(avatar_frame, font=('Arial', 11), width=60)
-        self.entry_avatar_url.pack(fill=tk.X)
-        tk.Label(avatar_frame, text="ℹ️ Opcional - Ingresa la URL completa de una imagen", font=('Arial', 9, 'italic'), bg='white', fg='#757575').pack(anchor='w', pady=(3, 0))
-        
         # ===== BIOGRAFÍA =====
         biografia_frame = tk.Frame(form, bg='white')
         biografia_frame.pack(fill=tk.X, pady=(0, 15))
         
         tk.Label(biografia_frame, text="📖 Biografía:", font=('Arial', 11, 'bold'), bg='white', fg='#2E7D32').pack(anchor='w', pady=(0, 5))
-        self.text_biography = scrolledtext.ScrolledText(biografia_frame, height=6, font=('Arial', 10), wrap=tk.WORD)
+        self.text_biography = scrolledtext.ScrolledText(biografia_frame, height=4, font=('Arial', 10), wrap=tk.WORD)
         self.text_biography.pack(fill=tk.BOTH, expand=True)
         tk.Label(biografia_frame, text="ℹ️ Opcional - Cuéntanos sobre el autor", font=('Arial', 9, 'italic'), bg='white', fg='#757575').pack(anchor='w', pady=(3, 0))
     
@@ -700,11 +688,10 @@ class VentanaFormularioAutor:
     
     def cargar_datos(self):
         """Carga datos para editar"""
-        autor = obtener_author_por_id(self.autor_id)
+        autor = AuthorController.get_author_by_id(self.autor_id)
         if autor:
             self.entry_name.insert(0, autor.get('name', ''))
             self.entry_email.insert(0, autor.get('email', '') or '')
-            self.entry_avatar_url.insert(0, autor.get('avatar_url', '') or '')
             if autor.get('biography'):
                 self.text_biography.insert('1.0', autor.get('biography'))
             # Guardar password_hash existente para no perderlo
@@ -729,12 +716,12 @@ class VentanaFormularioAutor:
         name = self.entry_name.get().strip()
         email = self.entry_email.get().strip()
         password = self.entry_password.get()
-        avatar_url = self.entry_avatar_url.get().strip()
         biography = self.text_biography.get('1.0', tk.END).strip()
+
         
         if self.modo == 'nuevo':
             # Crear nuevo autor
-            if AuthorController.create_author(name, email, password, avatar_url, biography):
+            if AuthorController.create_author(name, email, password, biography):
                 messagebox.showinfo("✅ Éxito", f"Autor '{name}' creado correctamente")
                 self.ventana_autores.cargar_autores()
                 self.ventana.destroy()
@@ -742,10 +729,7 @@ class VentanaFormularioAutor:
                 messagebox.showerror("❌ Error", "No se pudo crear el autor. Verifica que el email no esté duplicado.")
         else:
             # Actualizar autor existente
-            # Si no se cambió la contraseña, usar la existente
-            password_hash = password if password else self.password_hash_existente
-            
-            if actualizar_author(self.autor_id, name, email, password_hash, avatar_url, biography):
+            if AuthorController.update_author(self.autor_id, name, email, biography):
                 messagebox.showinfo("✅ Éxito", f"Autor '{name}' actualizado correctamente")
                 self.ventana_autores.cargar_autores()
                 self.ventana.destroy()
