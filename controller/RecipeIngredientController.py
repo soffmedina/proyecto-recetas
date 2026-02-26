@@ -32,10 +32,10 @@ class RecipeIngredientController:
             print("El ingrediente no existe")
             return None
 
-        # Limpiar datos
-        cleaned_quantity = quantity.strip() if quantity else ""
-        cleaned_unit = clean_text(unit) if unit else ""
-        cleaned_notes = clean_text(notes) if notes else ""
+        # Limpiar datos a texto (evitar errores al llamar strip)
+        cleaned_quantity = str(quantity).strip() if quantity is not None else ""
+        cleaned_unit = clean_text(str(unit)) if unit is not None else ""
+        cleaned_notes = clean_text(str(notes)) if notes is not None else ""
 
         # Agregar ingrediente
         return agregar_ingrediente_a_receta(
@@ -63,10 +63,10 @@ class RecipeIngredientController:
             print("El ingrediente no existe")
             return False
 
-        # Limpiar datos
-        cleaned_quantity = quantity.strip() if quantity else ""
-        cleaned_unit = clean_text(unit) if unit else ""
-        cleaned_notes = clean_text(notes) if notes else ""
+        # Limpiar datos a texto (aceptar numeros u otros tipos)
+        cleaned_quantity = str(quantity).strip() if quantity is not None else ""
+        cleaned_unit = clean_text(str(unit)) if unit is not None else ""
+        cleaned_notes = clean_text(str(notes)) if notes is not None else ""
 
         # Actualizar
         try:

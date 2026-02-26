@@ -1,6 +1,12 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 
+# se reutiliza el validador central para mantener la lógica idéntica a la capa de
+# controlador. De esta manera no habrá discrepancias entre lo que acepta la
+# interfaz y lo que acepta el backend (por ejemplo, antes el formulario
+# exigía 3 caracteres en el nombre mientras que el controlador permitía 2).
+from utils.validators import validate_required_text
+
 from controller.CuisineController import CuisineController
 
 
@@ -195,12 +201,14 @@ class VentanaFormularioCuisine:
     
     def _validar_nombre(self):
         """Valida el campo nombre"""
+        # aprovechamos el validador común para no repetir condiciones y poder
+        # cambiar el mínimo en un solo lugar si fuera necesario. El valor 2 es el
+        # que utiliza la capa de negocio/servicio.
         nombre = self.entry_nombre.get().strip()
-        if not nombre:
-            self.label_nombre_error.config(text="⚠️ El nombre es obligatorio")
-            return False
-        if len(nombre) < 3:
-            self.label_nombre_error.config(text="⚠️ El nombre debe tener al menos 3 caracteres")
+        valid, err = validate_required_text(nombre, "Nombre de la cocina", 2)
+        if not valid:
+            # el validador devuelve el mensaje apropiado, sólo lo mostramos
+            self.label_nombre_error.config(text=f"⚠️ {err}")
             return False
         self.label_nombre_error.config(text="")
         return True

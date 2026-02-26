@@ -334,6 +334,7 @@ class VentanaFormularioReceta:
         tk.Label(selector_frame, text="Ingrediente:", font=('Arial', 10), bg='white').pack(side=tk.LEFT, padx=(0, 5))
         ingredientes_lista = IngredientController.get_all_ingredients()
         self.ingredientes_disponibles = {ing['id']: ing['name'] for ing in ingredientes_lista}
+        print(f"DEBUG: Ingredientes cargados en formulario: {len(self.ingredientes_disponibles)} ({list(self.ingredientes_disponibles.items())[:3]}...)")
         self.combo_ingrediente = ttk.Combobox(selector_frame, 
                                                values=[ing['name'] for ing in ingredientes_lista],
                                                state='readonly', font=('Arial', 10), width=20)
@@ -352,7 +353,13 @@ class VentanaFormularioReceta:
         tk.Button(selector_frame, text="➕ Agregar", command=self._agregar_ingrediente, 
                  bg='#4CAF50', fg='white', font=('Arial', 9), padx=10, pady=3, cursor='hand2', bd=0).pack(side=tk.LEFT, padx=5)
         
-        # Treeview con ingredientes agregados
+        # Treeview con ingredientes agregados - con etiqueta visual del contador
+        tree_label_frame = tk.Frame(ingredientes_frame, bg='white')
+        tree_label_frame.pack(fill=tk.X, pady=(0, 3))
+        tk.Label(tree_label_frame, text="Ingredientes agregados:", font=('Arial', 10, 'bold'), bg='white').pack(anchor='w')
+        self.label_cant_ingredientes = tk.Label(tree_label_frame, text="(0)", font=('Arial', 10, 'italic'), bg='white', fg='#2196F3')
+        self.label_cant_ingredientes.pack(anchor='w')
+        
         self.tree_ingredientes = ttk.Treeview(ingredientes_frame, columns=('Ingrediente', 'Cantidad', 'Unidad'), show='headings', height=4)
         self.tree_ingredientes.heading('Ingrediente', text='Ingrediente')
         self.tree_ingredientes.heading('Cantidad', text='Cantidad')
@@ -360,6 +367,8 @@ class VentanaFormularioReceta:
         self.tree_ingredientes.column('Ingrediente', width=150)
         self.tree_ingredientes.column('Cantidad', width=80)
         self.tree_ingredientes.column('Unidad', width=80)
+        # bind event para actualizar contador cuando se agregan/elimina ingredientes
+        self.tree_ingredientes.bind('<<TreeviewSelect>>', self._actualizar_contador_ingredientes)
         self.tree_ingredientes.pack(fill=tk.X, pady=(0, 8))
         
         # Botón para eliminar ingrediente seleccionado
@@ -378,6 +387,11 @@ class VentanaFormularioReceta:
         self.label_prep_error = tk.Label(preparacion_frame, text="", font=('Arial', 9), bg='white', fg='#F44336')
         self.label_prep_error.pack(anchor='w', pady=(3, 0))
         tk.Label(preparacion_frame, text="ℹ️ Obligatorio - Detalla paso a paso cómo preparar la receta", font=('Arial', 9, 'italic'), bg='white', fg='#757575').pack(anchor='w', pady=(3, 0))
+    
+    def _actualizar_contador_ingredientes(self, event=None):
+        """Actualiza el contador visual de ingredientes en el formulario"""
+        cantidad = len(self.tree_ingredientes.get_children())
+        self.label_cant_ingredientes.config(text=f"({cantidad})")
     
     def _agregar_ingrediente(self):
         """Agrega un ingrediente al treeview"""
@@ -413,6 +427,9 @@ class VentanaFormularioReceta:
         self.combo_ingrediente.set('')
         self.entry_cantidad.delete(0, tk.END)
         self.combo_unidad.set('')
+        
+        # Actualizar contador
+        self._actualizar_contador_ingredientes()
     
     def _eliminar_ingrediente(self):
         """Elimina el ingrediente seleccionado del treeview"""
@@ -422,6 +439,8 @@ class VentanaFormularioReceta:
             return
         
         self.tree_ingredientes.delete(seleccion[0])
+        # Actualizar contador
+        self._actualizar_contador_ingredientes()
     
     def _validar_titulo(self):
         """Valida el título"""
@@ -479,6 +498,9 @@ class VentanaFormularioReceta:
         ingredientes_receta = RecipeIngredientController.get_ingredients_for_recipe(self.receta_id)
         for ing in ingredientes_receta:
             self.tree_ingredientes.insert('', tk.END, values=(ing['name'], ing.get('quantity', ''), ing.get('unit', '')), tags=(ing['id'],))
+        
+        # Actualizar contador inicial
+        self._actualizar_contador_ingredientes()
     
     def guardar_receta(self):
         """Guarda o actualiza la receta con validaciones"""
@@ -495,56 +517,152 @@ class VentanaFormularioReceta:
         descripcion = self.text_descripcion.get('1.0', tk.END).strip()
         preparacion = self.text_preparacion.get('1.0', tk.END).strip()
         
+        # convertir selección de combobox a ID, cuidando posibles valores
+        # inesperados para que no rompamos la ventana con un ValueError.
         autor_seleccion = self.combo_autor.get()
-        author_id = None if autor_seleccion == "Sin autor" else int(autor_seleccion.split(' - ')[0])
-        
+        author_id = None
+        if autor_seleccion and autor_seleccion != "Sin autor":
+            try:
+                author_id = int(autor_seleccion.split(' - ')[0])
+            except Exception:
+                # si no se puede convertir, dejamos None pero avisamos en
+                # consola para depuración
+                print(f"Advertencia: formato de autor no válido '{autor_seleccion}'")
+
         cuisine_seleccion = self.combo_cuisine.get()
-        cuisine_id = None if cuisine_seleccion == "Sin tipo de cocina" else int(cuisine_seleccion.split(' - ')[0])
+        cuisine_id = None
+        if cuisine_seleccion and cuisine_seleccion != "Sin tipo de cocina":
+            try:
+                cuisine_id = int(cuisine_seleccion.split(' - ')[0])
+            except Exception:
+                print(f"Advertencia: formato de tipo de cocina no válido '{cuisine_seleccion}'")
         
         # Guardar o actualizar
-        if self.modo == 'nuevo':
-            receta_id = RecipeController.create_recipe(titulo, preparacion, author_id, cuisine_id)
-            if receta_id:
-                # Guardar ingredientes
-                self._guardar_ingredientes(receta_id)
-                messagebox.showinfo("✅ Éxito", f"Receta '{titulo}' creada correctamente")
-                self.ventana_recetas.cargar_recetas()
-                self.ventana.destroy()
+        # los métodos del controlador esperan los parámetros en el orden
+        # (title, description, preparation, author_id, cuisine_id). En versiones
+        # anteriores se estaba pasando la preparación donde debería ir la
+        # descripción, lo que provocaba que al editar no se ejecutara ningún
+        # cambio (y en ocasiones se lanzaba una excepción silenciada por tkinter).
+        # Además, el update también presentaba el mismo desajuste.
+        try:
+            if self.modo == 'nuevo':
+                receta_id = RecipeController.create_recipe(
+                    titulo,
+                    descripcion,
+                    preparacion,
+                    author_id,
+                    cuisine_id,
+                )
+                if receta_id:
+                    # Guardar ingredientes recién añadidos
+                    try:
+                        self._guardar_ingredientes(receta_id)
+                    except Exception as ing_exc:
+                        print(f"Error al guardar ingredientes nuevos: {ing_exc}")
+                    messagebox.showinfo("✅ Éxito", f"Receta '{titulo}' creada correctamente")
+                    self.ventana_recetas.cargar_recetas()
+                    self.ventana.destroy()
+                else:
+                    messagebox.showerror("❌ Error", "No se pudo crear la receta")
             else:
-                messagebox.showerror("❌ Error", "No se pudo crear la receta")
-        else:
-            if RecipeController.update_recipe(self.receta_id, titulo, preparacion, author_id, cuisine_id):
-                # Actualizar ingredientes
-                self._actualizar_ingredientes(self.receta_id)
-                messagebox.showinfo("✅ Éxito", f"Receta '{titulo}' actualizada correctamente")
-                self.ventana_recetas.cargar_recetas()
-                self.ventana.destroy()
+                actualizado = RecipeController.update_recipe(
+                    self.receta_id,
+                    titulo,
+                    descripcion,
+                    preparacion,
+                    author_id,
+                    cuisine_id,
+                )
+                if actualizado:
+                    # Actualizar lista de ingredientes si la receta ya existía
+                    try:
+                        self._actualizar_ingredientes(self.receta_id)
+                    except Exception as ing_exc:
+                        print(f"Error al actualizar ingredientes: {ing_exc}")
+                    messagebox.showinfo("✅ Éxito", f"Receta '{titulo}' actualizada correctamente")
+                    self.ventana_recetas.cargar_recetas()
+                    self.ventana.destroy()
+                else:
+                    messagebox.showerror("❌ Error", "No se pudo actualizar la receta")
+        except Exception as exc:
+            # registrar la excepción completa en consola para análisis futuro
+            import traceback
+            traceback.print_exc()
+
+            # algunos errores son por conversión de IDs, otros pueden ser
+            # inesperados (p.ej. problemas con la DB). Presentamos el mensaje
+            # completo en el diálogo para que el usuario pueda copiarlo.
+            if isinstance(exc, ValueError):
+                messagebox.showerror(
+                    "❌ Error",
+                    "Ocurrió un problema con los datos ingresados. Revisa autor y tipo de cocina."
+                )
             else:
-                messagebox.showerror("❌ Error", "No se pudo actualizar la receta")
+                messagebox.showerror(
+                    "❌ Error",
+                    f"Ocurrió un error al guardar la receta:\n{exc}"
+                )
     
     def _guardar_ingredientes(self, receta_id):
         """Guarda los ingredientes agregados a la receta"""
+        errores = []
         for item in self.tree_ingredientes.get_children():
-            valores = self.tree_ingredientes.item(item)['values']
-            tags = self.tree_ingredientes.item(item)['tags']
-            ingrediente_id = int(tags[0]) if tags else None
-            cantidad = valores[1] if len(valores) > 1 else ''
-            unidad = valores[2] if len(valores) > 2 else ''
-            
-            if ingrediente_id:
-                RecipeIngredientController.add_ingredient_to_recipe(receta_id, ingrediente_id, cantidad, unidad, "")
+            try:
+                valores = self.tree_ingredientes.item(item)['values']
+                tags = self.tree_ingredientes.item(item)['tags']
+                
+                # extraer ingredient_id del tag, siendo defensivo
+                ingrediente_id = None
+                if tags and len(tags) > 0:
+                    try:
+                        ingrediente_id = int(tags[0])
+                    except (ValueError, TypeError) as e:
+                        print(f"Error extrayendo ID de tag {tags}: {e}")
+                        errores.append(f"Error procesando ID de ingrediente: {e}")
+                        continue
+                
+                if not ingrediente_id:
+                    errores.append("Ingrediente sin ID válido")
+                    continue
+                
+                # convertir a texto siempre para evitar errores de tipos (Decimal, int, etc.)
+                cantidad = str(valores[1]) if len(valores) > 1 and valores[1] is not None else ''
+                unidad = str(valores[2]) if len(valores) > 2 and valores[2] is not None else ''
+                
+                # debuging: print what we're about to save
+                print(f"Guardando: receta={receta_id}, ingrediente_id={ingrediente_id}, cantidad={cantidad}, unidad={unidad}")
+                
+                result = RecipeIngredientController.add_ingredient_to_recipe(receta_id, ingrediente_id, cantidad, unidad, "")
+                if result is None:
+                    errores.append(f"No se pudo guardar ingrediente ID {ingrediente_id}")
+                else:
+                    print(f"Ingrediente {ingrediente_id} guardado exitosamente (ID:{result})")
+            except Exception as exc:
+                print(f"Error procesando ingrediente: {exc}")
+                import traceback
+                traceback.print_exc()
+                errores.append(str(exc))
+        
+        if errores:
+            msg = "\n".join(errores)
+            print(f"Errores al guardar ingredientes: {msg}")
+            messagebox.showwarning("Advertencia", f"Algunos ingredientes no se guardaron:\n{msg}")
     
     def _actualizar_ingredientes(self, receta_id):
         """Actualiza los ingredientes de la receta (elimina actuales y agrega nuevos)"""
-        # Obtener ingredientes actuales
-        ingredientes_actuales = RecipeIngredientController.get_ingredients_for_recipe(receta_id)
-        
-        # Eliminar todos los ingredientes actuales
-        for ing in ingredientes_actuales:
-            RecipeIngredientController.remove_ingredient_from_recipe(receta_id, ing['id'])
-        
-        # Agregar nuevos ingredientes
-        self._guardar_ingredientes(receta_id)
+        try:
+            ingredientes_actuales = RecipeIngredientController.get_ingredients_for_recipe(receta_id)
+            
+            for ing in ingredientes_actuales:
+                try:
+                    RecipeIngredientController.remove_ingredient_from_recipe(receta_id, ing['id'])
+                except Exception as exc:
+                    print(f"Error eliminando ingrediente {ing['id']}: {exc}")
+            
+            self._guardar_ingredientes(receta_id)
+        except Exception as exc:
+            print(f"Error en _actualizar_ingredientes: {exc}")
+            messagebox.showerror("Error", f"Error al actualizar ingredientes: {exc}")
                 
                 
 

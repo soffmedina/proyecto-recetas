@@ -1,5 +1,10 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext
+
+# usar los validadores centrales para tener reglas idénticas a las del
+# controlador/negocio, así evitamos casos en los que el formulario rechace
+# un nombre válido o, peor aún, permita algo que el backend no acepta.
+from utils.validators import validate_required_text
 import re
 
 from controller.AuthorController import AuthorController
@@ -640,11 +645,9 @@ class VentanaFormularioAutor:
     def _validar_nombre(self):
         """Valida el campo nombre"""
         nombre = self.entry_name.get().strip()
-        if not nombre:
-            self.label_nombre_error.config(text="⚠️ El nombre es obligatorio")
-            return False
-        if len(nombre) < 3:
-            self.label_nombre_error.config(text="⚠️ El nombre debe tener al menos 3 caracteres")
+        valid, err = validate_required_text(nombre, "Nombre", 2)
+        if not valid:
+            self.label_nombre_error.config(text=f"⚠️ {err}")
             return False
         self.label_nombre_error.config(text="")
         return True
